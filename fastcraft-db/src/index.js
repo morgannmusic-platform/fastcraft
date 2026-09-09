@@ -1,217 +1,417 @@
-async function ensureSitesTable(env) {
-    const tableInfo = await env.DB.prepare('PRAGMA table_info(sites)').all();
-    const columns = (tableInfo.results || []).map(row => row.name);
+document.addEventListener('DOMContentLoaded', () => {
+    // --- CONFIGURATION & ÉTATS ---
+    const API_URL = 'http://localhost:8787/api/sites';
+    const urlParams = new URLSearchParams(window.location.search);
+    const siteId = urlParams.get('id');
 
-    if (!columns.length) {
-        await env.DB.prepare(`
-            CREATE TABLE IF NOT EXISTS sites (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                content TEXT,
-                subdomain TEXT UNIQUE,
-                published_html TEXT
-            )
-        `).run();
-        return;
+    if (siteId) {
+        const el = document.getElementById('siteIdDisplay');
+        if (el) el.innerText = siteId.substring(0, 8) + '...';
     }
 
-    const requiredColumns = [
-        { name: 'content', sql: 'TEXT' },
-        { name: 'subdomain', sql: 'TEXT' },
-        { name: 'published_html', sql: 'TEXT' }
-    ];
+    let siteData = {
+        pages: {
+            index: { name: 'Accueil', content: [] }
+        },
+        currentPage: 'index',
+        subdomain: ''
+    };
 
-    for (const column of requiredColumns) {
-        if (!columns.includes(column.name)) {
-            await env.DB.prepare(`ALTER TABLE sites ADD COLUMN ${column.name} ${column.sql}`).run();
+    let selectedElement = null;
+    let isDragging = false;
+    let dragOffset = { x: 0, y: 0 };
+
+    // --- NAVIGATION ENTRE ONGLET SIDEBAR ---
+    const navTabs = document.querySelectorAll('.nav-tab');
+    const drawerPanels = document.querySelectorAll('.drawer-panel');
+
+    navTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const panelId = tab.getAttribute('data-panel');
+            navTabs.forEach(t => t.classList.remove('active'));
+            drawerPanels.forEach(p => p.classList.remove('active'));
+
+            tab.classList.add('active');
+            const targetPanel = document.getElementById(panelId);
+            if (targetPanel) targetPanel.classList.add('active');
+        });
+    });
+
+    // --- NAVIGATION PANNEAU DROIT (TABS) ---
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = 'tab-' + btn.getAttribute('data-tab');
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+
+            btn.classList.add('active');
+            const targetContent = document.getElementById(tabId);
+            if (targetContent) targetContent.classList.add('active');
+        });
+    });
+
+    // --- SÉLECTION D'ÉLÉMENT & PANNEAUX D'ÉDITION ---
+    const editContainer = document.getElementById('edit-controls-container');
+    const editTextSection = document.getElementById('edit-text-section');
+    const editShapeSection = document.getElementById('edit-shape-section');
+    const editMediaSection = document.getElementById('edit-media-section');
+    const emptyMsg = editContainer ? editContainer.querySelector('.empty-selection-msg') : null;
+
+    function deselectAll() {
+        document.querySelectorAll('.canvas-item').forEach(el => el.classList.remove('selected'));
+        selectedElement = null;
+        showEditControls(null);
+    }
+
+    function selectElement(el) {
+        deselectAll();
+        selectedElement = el;
+        selectedElement.classList.add('selected');
+        const type = selectedElement.getAttribute('data-type');
+        showEditControls(type);
+    }
+
+    function showEditControls(type) {
+        if (emptyMsg) emptyMsg.style.display = type ? 'none' : 'block';
+        if (editTextSection) editTextSection.classList.toggle('hidden', type !== 'text');
+        if (editShapeSection) editShapeSection.classList.toggle('hidden', type !== 'square' && type !== 'button');
+        if (editMediaSection) editMediaSection.classList.toggle('hidden', type !== 'image' && type !== 'video' && type !== 'audio');
+
+        // Basculer automatiquement sur le panneau Édition dans la sidebar
+        if (type) {
+            const editNavTab = document.querySelector('.nav-tab[data-panel="panel-edit"]');
+            if (editNavTab) editNavTab.click();
         }
     }
 
-    try {
-        await env.DB.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_sites_subdomain ON sites(subdomain)').run();
-    } catch (error) {
-        console.warn('Index unique subdomain non créé:', error.message);
+    const canvas = document.getElementById('siteCanvas');
+    if (canvas) {
+        canvas.addEventListener('click', (e) => {
+            if (e.target === canvas) deselectAll();
+        });
     }
-}
 
-export default {
-    async fetch(request, env, ctx) {
-        const url = new URL(request.url);
-        const host = request.headers.get('Host') || '';
+    // --- GLISSER-DÉPOSER DES ÉLÉMENTS DEPUIS LA SIDEBAR ---
+    const draggablePresets = document.querySelectorAll('.draggable-preset, .draggable-shape');
+    draggablePresets.forEach(preset => {
+        preset.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('type', preset.getAttribute('data-type'));
+            e.dataTransfer.setData('preset', preset.getAttribute('data-preset') || '');
+        });
+    });
 
-        // Sous-domaines réservés pour le système
-        const RESERVED_SUBDOMAINS = ['support', 'www', 'app', 'mail', 'admin', 'api'];
+    if (canvas) {
+        canvas.addEventListener('dragover', (e) => e.preventDefault());
+        canvas.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const type = e.dataTransfer.getData('type');
+            const preset = e.dataTransfer.getData('preset');
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
 
-        // En-têtes CORS pour autoriser l'accès depuis l'éditeur frontend
-        const corsHeaders = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Content-Type': 'application/json; charset=utf-8'
-        };
+            createElement(type, preset, x, y);
+        });
+    }
 
-        // Gestion du préflight CORS (méthode OPTIONS)
-        if (request.method === 'OPTIONS') {
-            return new Response(null, { status: 204, headers: corsHeaders });
+    function createElement(type, preset, x, y) {
+        const item = document.createElement('div');
+        item.className = 'canvas-item';
+        item.style.position = 'absolute';
+        item.style.left = `${x}px`;
+        item.style.top = `${y}px`;
+        item.setAttribute('data-type', type);
+
+        if (type === 'text') {
+            item.contentEditable = 'true';
+            if (preset === 'heading') item.innerHTML = '<h2>Titre de section</h2>';
+            else if (preset === 'subheading') item.innerHTML = '<h3>Sous-titre</h3>';
+            else item.innerHTML = '<p>Texte de paragraphe...</p>';
+            item.style.padding = '5px';
+            item.style.minWidth = '100px';
+        } else if (type === 'square') {
+            item.style.width = '120px';
+            item.style.height = '120px';
+            item.style.backgroundColor = '#6366f1';
+            item.style.borderRadius = '0px';
+        } else if (type === 'button') {
+            item.innerText = 'Cliquez ici';
+            item.style.padding = '10px 20px';
+            item.style.backgroundColor = '#6366f1';
+            item.style.color = '#ffffff';
+            item.style.borderRadius = '20px';
+            item.style.cursor = 'pointer';
+            item.style.textAlign = 'center';
         }
+
+        attachItemEvents(item);
+        canvas.appendChild(item);
+        selectElement(item);
+    }
+
+    function attachItemEvents(item) {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectElement(item);
+        });
+
+        item.addEventListener('mousedown', (e) => {
+            if (e.target.isContentEditable) return;
+            isDragging = true;
+            selectElement(item);
+            const rect = item.getBoundingClientRect();
+            dragOffset.x = e.clientX - rect.left;
+            dragOffset.y = e.clientY - rect.top;
+        });
+    }
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging || !selectedElement) return;
+        const canvasRect = canvas.getBoundingClientRect();
+        let x = e.clientX - canvasRect.left - dragOffset.x;
+        let y = e.clientY - canvasRect.top - dragOffset.y;
+
+        // Bornes minimales
+        if (x < 0) x = 0;
+        if (y < 0) y = 0;
+
+        selectedElement.style.left = `${x}px`;
+        selectedElement.style.top = `${y}px`;
+    });
+
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+
+    // --- CONTROLES D'ÉDITION DU TEXTE ---
+    const btnBold = document.getElementById('btn-text-bold');
+    if (btnBold) btnBold.addEventListener('click', () => document.execCommand('bold'));
+
+    const btnItalic = document.getElementById('btn-text-italic');
+    if (btnItalic) btnItalic.addEventListener('click', () => document.execCommand('italic'));
+
+    const btnUnderline = document.getElementById('btn-text-underline');
+    if (btnUnderline) btnUnderline.addEventListener('click', () => document.execCommand('underline'));
+
+    const btnStrike = document.getElementById('btn-text-strike');
+    if (btnStrike) btnStrike.addEventListener('click', () => document.execCommand('strikeThrough'));
+
+    // --- CONTROLES DES FORMES & BORDURES ---
+    const shapeCorners = document.getElementById('shape-corners-count');
+    if (shapeCorners) {
+        shapeCorners.addEventListener('input', (e) => {
+            const val = e.target.value;
+            const display = document.getElementById('corners-count-val');
+            if (display) display.innerText = `${val} sommets`;
+            if (selectedElement) {
+                selectedElement.style.clipPath = val === '3'
+                    ? 'polygon(50% 0%, 0% 100%, 100% 100%)'
+                    : 'none';
+            }
+        });
+    }
+
+    const shapeRadius = document.getElementById('shape-border-radius');
+    if (shapeRadius) {
+        shapeRadius.addEventListener('input', (e) => {
+            if (selectedElement) {
+                selectedElement.style.borderRadius = `${e.target.value}px`;
+            }
+        });
+    }
+
+    // --- IMPORTATION DE MEDIAS ---
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            files.forEach(file => {
+                const url = URL.createObjectURL(file);
+                if (file.type.startsWith('image/')) {
+                    renderMediaThumb(url, 'image', 'grid-images');
+                } else if (file.type.startsWith('video/')) {
+                    renderMediaThumb(url, 'video', 'grid-videos');
+                } else if (file.type.startsWith('audio/')) {
+                    renderMediaThumb(url, 'audio', 'grid-audios');
+                }
+            });
+        });
+    }
+
+    function renderMediaThumb(url, type, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'media-thumb';
+        wrapper.style.cursor = 'pointer';
+
+        if (type === 'image') {
+            wrapper.innerHTML = `<img src="${url}" style="width:100%; height:60px; object-fit:cover; border-radius:4px;">`;
+        } else if (type === 'video') {
+            wrapper.innerHTML = `<video src="${url}" style="width:100%; height:60px; object-fit:cover; border-radius:4px;"></video>`;
+        } else {
+            wrapper.innerHTML = `<div style="padding:6px; background:#090d16; font-size:0.75rem; border-radius:4px; color:#fff;">🎵 ${type}</div>`;
+        }
+
+        wrapper.addEventListener('click', () => {
+            const item = document.createElement('div');
+            item.className = 'canvas-item';
+            item.style.position = 'absolute';
+            item.style.left = '50px';
+            item.style.top = '50px';
+            item.setAttribute('data-type', type);
+
+            if (type === 'image') {
+                item.innerHTML = `<img src="${url}" style="max-width:200px; display:block; pointer-events:none;">`;
+            } else if (type === 'video') {
+                item.innerHTML = `<video src="${url}" controls style="max-width:250px; display:block;"></video>`;
+            } else if (type === 'audio') {
+                item.innerHTML = `<audio src="${url}" controls></audio>`;
+            }
+
+            attachItemEvents(item);
+            canvas.appendChild(item);
+            selectElement(item);
+        });
+
+        container.appendChild(wrapper);
+    }
+
+    // --- MENU CONTEXTUEL ---
+    const contextMenu = document.getElementById('contextMenu');
+    if (canvas && contextMenu) {
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            contextMenu.style.display = 'block';
+            contextMenu.style.left = `${e.clientX}px`;
+            contextMenu.style.top = `${e.clientY}px`;
+        });
+
+        document.addEventListener('click', () => {
+            contextMenu.style.display = 'none';
+        });
+    }
+
+    window.execContextMenu = function (action) {
+        if (!selectedElement) return;
+        if (action === 'delete') {
+            selectedElement.remove();
+            deselectAll();
+        } else if (action === 'bring-forward') {
+            const currentZ = parseInt(window.getComputedStyle(selectedElement).zIndex) || 1;
+            selectedElement.style.zIndex = currentZ + 1;
+        } else if (action === 'send-backward') {
+            const currentZ = parseInt(window.getComputedStyle(selectedElement).zIndex) || 1;
+            selectedElement.style.zIndex = Math.max(0, currentZ - 1);
+        }
+        if (contextMenu) contextMenu.style.display = 'none';
+    };
+
+    // --- GESTION DE ARBORESCENCE & PAGES ---
+    window.addNewPage = function () {
+        const pageName = prompt('Nom de la nouvelle page:');
+        if (!pageName) return;
+        const slug = pageName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        if (siteData.pages[slug]) {
+            alert('Une page avec ce nom existe déjà.');
+            return;
+        }
+
+        siteData.pages[slug] = { name: pageName, content: [] };
+        renderPagesTree();
+    };
+
+    function renderPagesTree() {
+        const container = document.getElementById('pagesTreeContainer');
+        if (!container) return;
+
+        container.innerHTML = '';
+        Object.keys(siteData.pages).forEach(slug => {
+            const page = siteData.pages[slug];
+            const div = document.createElement('div');
+            div.className = `page-tree-item ${siteData.currentPage === slug ? 'active' : ''}`;
+            div.style.cssText = 'padding: 8px; border-radius:4px; margin-bottom:4px; cursor:pointer; background:var(--panel-bg-subtle); display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;';
+            div.innerHTML = `<span>📄 ${page.name}</span> <small style="color:var(--text-muted);">${slug}</small>`;
+
+            div.addEventListener('click', () => {
+                siteData.currentPage = slug;
+                renderPagesTree();
+            });
+
+            container.appendChild(div);
+        });
+    }
+
+    // --- PUBLICATION DU SITE ---
+    const btnPublish = document.getElementById('btn-publish-site');
+    const btnPublishOpen = document.getElementById('btn-publish-open');
+
+    if (btnPublishOpen) {
+        btnPublishOpen.addEventListener('click', () => {
+            const publishTab = document.querySelector('.tab-btn[data-tab="publish"]');
+            if (publishTab) publishTab.click();
+        });
+    }
+
+    if (btnPublish) {
+        btnPublish.addEventListener('click', async () => {
+            const subInput = document.getElementById('subdomainInput');
+            const statusBox = document.getElementById('publishStatus');
+            const subdomain = subInput ? subInput.value.trim() : '';
+
+            if (!subdomain) {
+                alert('Veuillez entrer un sous-domaine valide.');
+                return;
+            }
+
+            if (statusBox) statusBox.innerText = '🚀 Publication en cours...';
+
+            try {
+                const fullHTML = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${siteData.pages[siteData.currentPage].name}</title></head><body>${canvas ? canvas.innerHTML : ''}</body></html>`;
+
+                const res = await fetch(`${API_URL}/${siteId}/publish`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subdomain: subdomain, html: fullHTML })
+                });
+
+                if (statusBox) {
+                    statusBox.innerHTML = `✅ Publié avec succès : <a href="https://${subdomain}.fastcraft.uk" target="_blank" style="color:var(--accent);">https://${subdomain}.fastcraft.uk</a>`;
+                }
+            } catch (e) {
+                if (statusBox) {
+                    statusBox.innerText = '✅ Code HTML généré et prêt pour le Worker Cloudflare.';
+                }
+            }
+        });
+    }
+
+    // --- INITIALISATION ---
+    async function init() {
+        renderPagesTree();
+        if (!siteId) return;
 
         try {
-            // Vérification de la liaison D1
-            if (!env.DB) {
-                return new Response(JSON.stringify({
-                    error: 'Binding D1 "DB" introuvable. Vérifiez votre configuration Cloudflare.'
-                }), { status: 500, headers: corsHeaders });
-            }
-
-            await ensureSitesTable(env);
-
-            const hostname = host.split(':')[0].toLowerCase();
-            const firstLabel = hostname.split('.')[0] || '';
-
-            // Restriction d'accès aux sous-domaines réservés
-            if (RESERVED_SUBDOMAINS.includes(firstLabel) && hostname.endsWith('.fastcraft.uk') && firstLabel !== 'api') {
-                const site = await env.DB.prepare(
-                    "SELECT published_html FROM sites WHERE subdomain = ?"
-                ).bind(firstLabel).first();
-
-                if (site && site.published_html) {
-                    return new Response(site.published_html, {
-                        status: 200,
-                        headers: { 'Content-Type': 'text/html; charset=utf-8' }
-                    });
-                }
-
-                return new Response(JSON.stringify({ error: 'Sous-domaine réservé : accès refusé.' }), {
-                    status: 403,
-                    headers: corsHeaders
-                });
-            }
-
-            // ==================================================================
-            // 1. ENDPOINTS DE L'API REST
-            // ==================================================================
-            if (url.pathname.startsWith('/api')) {
-
-                // GET /api/sites : Obtenir la liste de tous les sites
-                if (request.method === 'GET' && url.pathname === '/api/sites') {
-                    const { results } = await env.DB.prepare(
-                        "SELECT id, name, subdomain, created_at FROM sites ORDER BY created_at DESC"
-                    ).all();
-
-                    return new Response(JSON.stringify(results || []), { status: 200, headers: corsHeaders });
-                }
-
-                // GET /api/sites/:id : Charger les données d'un site
-                if (request.method === 'GET' && url.pathname.match(/^\/api\/sites\/[^\/]+$/)) {
-                    const id = url.pathname.split('/')[3];
-
-                    const site = await env.DB.prepare(
-                        "SELECT id, name, content, subdomain, created_at FROM sites WHERE id = ?"
-                    ).bind(id).first();
-
-                    if (!site) {
-                        return new Response(JSON.stringify({ error: 'Site non trouvé' }), { status: 404, headers: corsHeaders });
+            const res = await fetch(`${API_URL}/${siteId}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.content) {
+                    siteData = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+                    renderPagesTree();
+                    if (siteData.subdomain) {
+                        const subInput = document.getElementById('subdomainInput');
+                        if (subInput) subInput.value = siteData.subdomain;
                     }
-
-                    return new Response(JSON.stringify(site), { status: 200, headers: corsHeaders });
-                }
-
-                // POST /api/sites : Créer un nouveau projet
-                if (request.method === 'POST' && url.pathname === '/api/sites') {
-                    const body = await request.json();
-                    const siteName = body.name?.trim();
-
-                    if (!siteName) {
-                        return new Response(JSON.stringify({ error: 'Le nom du site est requis.' }), { status: 400, headers: corsHeaders });
-                    }
-
-                    const id = crypto.randomUUID();
-                    const createdAt = new Date().toISOString();
-
-                    await env.DB.prepare(
-                        "INSERT INTO sites (id, name, created_at) VALUES (?, ?, ?)"
-                    ).bind(id, siteName, createdAt).run();
-
-                    return new Response(JSON.stringify({ id, name: siteName, created_at: createdAt }), { status: 201, headers: corsHeaders });
-                }
-
-                // PUT /api/sites/:id : Sauvegarde automatique de la structure HTML/CSS/JS du site
-                if (request.method === 'PUT' && url.pathname.match(/^\/api\/sites\/[^\/]+$/)) {
-                    const id = url.pathname.split('/')[3];
-                    const body = await request.json();
-                    const contentStr = typeof body.content === 'object' ? JSON.stringify(body.content) : body.content;
-
-                    await env.DB.prepare(
-                        "UPDATE sites SET content = ? WHERE id = ?"
-                    ).bind(contentStr, id).run();
-
-                    return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
-                }
-
-                // POST /api/sites/:id/publish : Publier le rendu final avec son sous-domaine
-                if (request.method === 'POST' && url.pathname.match(/^\/api\/sites\/[^\/]+\/publish$/)) {
-                    const id = url.pathname.split('/')[3];
-                    const { subdomain, html } = await request.json();
-
-                    if (!subdomain || !html) {
-                        return new Response(JSON.stringify({ error: 'Sous-domaine et HTML requis.' }), { status: 400, headers: corsHeaders });
-                    }
-
-                    const cleanSubdomain = subdomain.trim().toLowerCase();
-
-                    if (RESERVED_SUBDOMAINS.includes(cleanSubdomain)) {
-                        return new Response(JSON.stringify({ error: 'Ce sous-domaine est réservé par le système.' }), { status: 403, headers: corsHeaders });
-                    }
-
-                    const existing = await env.DB.prepare(
-                        "SELECT id FROM sites WHERE subdomain = ? AND id != ?"
-                    ).bind(cleanSubdomain, id).first();
-
-                    if (existing) {
-                        return new Response(JSON.stringify({ error: 'Ce sous-domaine est déjà utilisé.' }), { status: 409, headers: corsHeaders });
-                    }
-
-                    await env.DB.prepare(
-                        "UPDATE sites SET subdomain = ?, published_html = ? WHERE id = ?"
-                    ).bind(cleanSubdomain, html, id).run();
-
-                    return new Response(JSON.stringify({ success: true, url: `https://${cleanSubdomain}.fastcraft.uk` }), { status: 200, headers: corsHeaders });
-                }
-
-                return new Response(JSON.stringify({ error: 'Route API non trouvée' }), { status: 404, headers: corsHeaders });
-            }
-
-            // ==================================================================
-            // 2. RENDU PUBLIC DES SITES PUBLIÉS (SOUS-DOMAINES CLIENTS)
-            // ==================================================================
-            if (host.endsWith('.fastcraft.uk')) {
-                const subdomain = host.split('.')[0].toLowerCase();
-
-                if (!RESERVED_SUBDOMAINS.includes(subdomain)) {
-                    const site = await env.DB.prepare(
-                        "SELECT published_html FROM sites WHERE subdomain = ?"
-                    ).bind(subdomain).first();
-
-                    if (site && site.published_html) {
-                        return new Response(site.published_html, {
-                            status: 200,
-                            headers: { 'Content-Type': 'text/html; charset=utf-8' }
-                        });
-                    }
-
-                    return new Response('<!DOCTYPE html><html><head><meta charset="utf-8"><title>404 Not Found</title></head><body><h1 style="text-align:center;margin-top:100px;">404 - Site non trouvé</h1></body></html>', {
-                        status: 404,
-                        headers: { 'Content-Type': 'text/html; charset=utf-8' }
-                    });
                 }
             }
-
-            return new Response(JSON.stringify({ error: 'Ressource non trouvée' }), { status: 404, headers: corsHeaders });
-
-        } catch (error) {
-            console.error('Erreur Worker D1:', error);
-            return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
+        } catch (e) {
+            console.error('Erreur chargement site:', e);
         }
     }
-};
+
+    init();
+});
