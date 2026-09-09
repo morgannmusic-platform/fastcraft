@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Compte - FastCraft | Morgann Music Platforms</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="/assets/navbars/accueil/navbar.css">
+
+    <style>
+        .account-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 28px;
+            align-items: start;
+        }
+
+        .account-sidebar,
+        .account-card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            padding: 30px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+        }
+
+        .user-profile-header {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            display: grid;
+            place-items: center;
+            font-size: 2.2rem;
+            font-weight: 700;
+            box-shadow: 0 8px 20px rgba(46, 196, 182, 0.3);
+            overflow: hidden;
+        }
+
+        .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .user-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0;
+        }
+
+        .user-email {
+            font-size: 0.88rem;
+            color: var(--text-soft);
+            word-break: break-all;
+        }
+
+        .badge-provider {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(46, 196, 182, 0.12);
+            color: var(--primary-dark);
+            margin-top: 6px;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: var(--text-soft);
+        }
+
+        .form-input {
+            width: 100%;
+            height: 48px;
+            padding: 0 16px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.8);
+            font-family: inherit;
+            font-size: 0.95rem;
+            color: var(--text);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(46, 196, 182, 0.15);
+        }
+
+        .form-input:disabled {
+            background: rgba(17, 32, 49, 0.04);
+            cursor: not-allowed;
+            color: var(--text-soft);
+        }
+
+        .account-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .btn-logout {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 16px;
+        }
+
+        .btn-logout:hover {
+            background: #e65252;
+        }
+
+        .status-message {
+            margin-top: 14px;
+            font-size: 0.88rem;
+            padding: 10px 14px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .status-message.success {
+            background: rgba(114, 213, 114, 0.2);
+            color: #2b7a2b;
+            border: 1px solid rgba(114, 213, 114, 0.4);
+        }
+
+        .status-message.error {
+            background: rgba(255, 107, 107, 0.15);
+            color: #d63031;
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+
+        .stats-box {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: rgba(17, 32, 49, 0.03);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .stat-card strong {
+            display: block;
+            font-size: 1.8rem;
+            color: var(--primary-dark);
+        }
+
+        .stat-card span {
+            font-size: 0.82rem;
+            color: var(--text-soft);
+        }
+
+        .platform-branding {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 0.8rem;
+            color: var(--text-soft);
+            grid-column: 1 / -1;
+        }
+
+        @media (max-width: 860px) {
+            .account-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="navbar-container"></div>
+
+    <main class="page-shell">
+        <div style="margin-bottom: 30px;">
+            <span class="eyebrow">Espace membre</span>
+            <h1 style="font-size: 2.2rem; margin-top: 10px;">Gestion du compte</h1>
+        </div>
+
+        <div class="account-grid">
+            <!-- Sidebar Profil -->
+            <aside class="account-sidebar">
+                <div class="user-profile-header">
+                    <div class="avatar" id="avatarContainer">
+                        <span id="avatarInitial">?</span>
+                    </div>
+                    <h2 class="user-name" id="profileDisplayName">Chargement...</h2>
+                    <span class="user-email" id="profileEmail">...</span>
+                    <span class="badge-provider" id="providerBadge">Morgann Music Auth</span>
+                </div>
+
+                <button id="logoutBtn" class="btn btn-logout">Se déconnecter</button>
+            </aside>
+
+            <!-- Main Content -->
+            <section class="account-card">
+                <h2 class="section-title">Aperçu du stockage D1</h2>
+                <div class="stats-box">
+                    <div class="stat-card">
+                        <strong id="totalPages">0</strong>
+                        <span>Pages créées</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong id="publishedPages">0</strong>
+                        <span>Pages publiées</span>
+                    </div>
+                </div>
+
+                <h2 class="section-title">Informations personnelles</h2>
+
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label for="displayName">Nom d'affichage / Pseudo</label>
+                        <input type="text" id="displayName" class="form-input" placeholder="Votre nom" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Adresse e-mail (non modifiable)</label>
+                        <input type="email" id="email" class="form-input" disabled>
+                    </div>
+
+                    <div class="account-actions">
+                        <button type="submit" class="btn btn-primary" style="border:none; cursor:pointer;">Enregistrer
+                            les modifications</button>
+                    </div>
+                </form>
+
+                <hr style="border: none; border-top: 1px solid var(--line); margin: 30px 0;">
+
+                <h2 class="section-title">Sécurité</h2>
+                <p style="color: var(--text-soft); font-size: 0.9rem; margin-bottom: 16px;">
+                    Vous pouvez demander un lien de réinitialisation de mot de passe par e-mail.
+                </p>
+                <button id="resetPasswordBtn" class="btn btn-secondary">Envoyer l'e-mail de réinitialisation</button>
+
+                <div id="statusMessage" class="status-message"></div>
+            </section>
+
+            <div class="platform-branding">
+                Compte unifié <strong>FastCraft</strong> — Base de données <strong>Cloudflare D1</strong> par
+                <strong>Morgann Music Platforms</strong>
+            </div>
+        </div>
+    </main>
+
+    <script src="/assets/navbars/accueil/navbar.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import {
+            getAuth,
+            onAuthStateChanged,
+            updateProfile,
+            sendPasswordResetEmail,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSPUArpApBuK0Cn9VbeMtqk4JC-gqruJc",
+            authDomain: "morgann-music-cp.firebaseapp.com",
+            projectId: "morgann-music-cp",
+            storageBucket: "morgann-music-cp.firebasestorage.app",
+            messagingSenderId: "666812685196",
+            appId: "1:666812685196:web:dfbd58b64eb988748494a9",
+            measurementId: "G-D03LV01K0H"
+        };
+
+        const API_WORKER_URL = "https://api.fastcraft.uk"; // Remplace avec ton URL de Worker Cloudflare
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        const profileDisplayName = document.getElementById('profileDisplayName');
+        const profileEmail = document.getElementById('profileEmail');
+        const displayNameInput = document.getElementById('displayName');
+        const emailInput = document.getElementById('email');
+        const avatarContainer = document.getElementById('avatarContainer');
+        const avatarInitial = document.getElementById('avatarInitial');
+        const providerBadge = document.getElementById('providerBadge');
+
+        const totalPagesEl = document.getElementById('totalPages');
+        const publishedPagesEl = document.getElementById('publishedPages');
+
+        const profileForm = document.getElementById('profileForm');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const resetPasswordBtn = document.getElementById('resetPasswordBtn');
+        const statusMessage = document.getElementById('statusMessage');
+
+        function showStatus(text, isError = false) {
+            statusMessage.textContent = text;
+            statusMessage.className = `status-message ${isError ? 'error' : 'success'}`;
+            statusMessage.style.display = 'block';
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // Charger les statistiques utilisateur depuis Cloudflare D1
+        async function fetchD1UserStats(userId) {
+            try {
+                const res = await fetch(`${API_WORKER_URL}/api/pages?userId=${userId}`);
+                if (res.ok) {
+                    const pages = await res.json();
+                    totalPagesEl.textContent = pages.length;
+                    publishedPagesEl.textContent = pages.filter(p => p.published === 1).length;
+                }
+            } catch (e) {
+                console.error("Erreur de récupération D1:", e);
+            }
+        }
+
+        // Synchroniser la mise à jour du profil vers Cloudflare D1
+        async function updateD1Profile(userId, name, email) {
+            try {
+                await fetch(`${API_WORKER_URL}/api/user`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: userId, name, email })
+                });
+            } catch (e) {
+                console.error("Erreur mise à jour D1:", e);
+            }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const name = user.displayName || 'Utilisateur';
+                const email = user.email;
+
+                localStorage.setItem('fastcraft-user', JSON.stringify({
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: user.displayName || 'Utilisateur',
+                    provider: user.providerData?.[0]?.providerId || 'password'
+                }));
+
+                profileDisplayName.textContent = name;
+                profileEmail.textContent = email;
+                displayNameInput.value = name;
+                emailInput.value = email;
+
+                if (user.photoURL) {
+                    avatarContainer.innerHTML = `<img src="${user.photoURL}" alt="Avatar">`;
+                } else {
+                    avatarInitial.textContent = name.charAt(0).toUpperCase();
+                }
+
+                const isGoogle = user.providerData.some(p => p.providerId === 'google.com');
+                providerBadge.textContent = isGoogle ? 'Connecté avec Google' : 'Compte Email / Mot de passe';
+
+                if (isGoogle) {
+                    resetPasswordBtn.style.display = 'none';
+                }
+
+                // Charger les données D1
+                fetchD1UserStats(user.uid);
+            } else {
+                window.location.href = 'connexion.html';
+            }
+        });
+
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newName = displayNameInput.value.trim();
+
+            if (!newName) return;
+
+            try {
+                await updateProfile(auth.currentUser, { displayName: newName });
+                await updateD1Profile(auth.currentUser.uid, newName, auth.currentUser.email);
+
+                profileDisplayName.textContent = newName;
+                if (!auth.currentUser.photoURL) {
+                    avatarInitial.textContent = newName.charAt(0).toUpperCase();
+                }
+                showStatus("Profil mis à jour dans Firebase et Cloudflare D1 !");
+            } catch (error) {
+                showStatus("Erreur lors de la mise à jour du profil.", true);
+            }
+        });
+
+        resetPasswordBtn.addEventListener('click', async () => {
+            try {
+                await sendPasswordResetEmail(auth, auth.currentUser.email);
+                showStatus("E-mail de réinitialisation envoyé !");
+            } catch (error) {
+                showStatus("Impossible d'envoyer l'e-mail de réinitialisation.", true);
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                localStorage.removeItem('fastcraft-user');
+                sessionStorage.removeItem('fastcraft-user');
+                window.location.href = 'connexion.html';
+            } catch (error) {
+                showStatus("Erreur lors de la déconnexion.", true);
+            }
+        });
+    </script>
+</body>
+
+</html>

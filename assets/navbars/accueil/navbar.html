@@ -1,0 +1,29 @@
+<nav class="navbar" id="main-navbar">
+    <div class="nav-container">
+        <a href="/" class="nav-logo"><img src="/assets/img/logos/logo.svg" alt="Logo"></a>
+
+        <!-- Bouton Hamburger -->
+        <button class="menu-toggle" id="menu-toggle" aria-label="Ouvrir le menu">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </button>
+
+        <!-- Menu Latéral / Offcanvas -->
+        <div class="nav-menu" id="nav-menu">
+            <ul class="nav-links">
+                <li><a href="/" class="active">Accueil</a></li>
+                <li><a href="/tarifs.html">Tarifs</a></li>
+            </ul>
+
+            <div class="nav-actions" id="nav-auth-actions">
+                <a href="/connexion.html" class="nav-btn nav-btn-outline auth-guest">Connexion</a>
+                <a href="/inscription.html" class="nav-btn nav-btn-primary auth-guest">Inscription</a>
+                <a href="/espace/index.html" class="nav-btn nav-btn-primary auth-user hidden">Espace de travail</a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- Overlay de fond -->
+<div class="menu-overlay" id="menu-overlay"></div>

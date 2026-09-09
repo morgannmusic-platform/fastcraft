@@ -1,0 +1,271 @@
+:root {
+    --nav-height: 70px;
+    --nav-text: #111827;
+    --nav-text-scrolled: #111827;
+    --burger-color: #111827;
+    --burger-color-active: #111827;
+}
+
+/* Structure de la Navbar */
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: var(--nav-height);
+    z-index: 1000;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+}
+
+/* Le fond : transparent au début, dégradé blanc + flou WebKit au scroll */
+.navbar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(180deg, #ecfffe 0%, rgba(255, 255, 255, 0) 100%);
+    -webkit-backdrop-filter: blur(22px);
+    backdrop-filter: blur(22px);
+    opacity: 0;
+    -webkit-transition: opacity 0.4s ease;
+    transition: opacity 0.1s ease;
+    pointer-events: none;
+}
+
+/* Affichage du fond lors du scroll */
+.navbar.scrolled::before {
+    opacity: 1;
+}
+
+.nav-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: justify;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+}
+
+.nav-logo img {
+    height: 30px;
+}
+
+.nav-menu {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    gap: 24px;
+}
+
+.nav-actions {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    gap: 12px;
+}
+
+.nav-btn {
+    display: inline-flex;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    min-width: 110px;
+    height: 40px;
+    padding: 0 18px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    -webkit-transition: all 0.2s ease;
+    transition: all 0.2s ease;
+}
+
+.nav-btn-outline {
+    color: var(--nav-text);
+    border: 1px solid rgba(17, 32, 49, 0.12);
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.nav-btn-primary {
+    background: linear-gradient(135deg, #2ec4b6 0%, #1fa89a 100%);
+    color: #ffffff;
+    box-shadow: 0 10px 24px rgba(31, 168, 154, 0.25);
+}
+
+.nav-btn:hover {
+    -webkit-transform: translateY(-1px);
+    transform: translateY(-1px);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Bouton Hamburger */
+.menu-toggle {
+    display: none;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-pack: justify;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    width: 28px;
+    height: 20px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    z-index: 1001;
+}
+
+.menu-toggle .bar {
+    width: 100%;
+    height: 2.5px;
+    background-color: var(--burger-color);
+    border-radius: 2px;
+    -webkit-transition: -webkit-transform 0.3s ease, opacity 0.3s ease, background-color 0.4s ease;
+    transition: transform 0.3s ease, opacity 0.3s ease, background-color 0.4s ease;
+}
+
+.menu-toggle.is-active .bar:nth-child(1) {
+    -webkit-transform: translateY(8.5px) rotate(45deg);
+    transform: translateY(8.5px) rotate(45deg);
+    background-color: var(--burger-color-active);
+}
+
+.menu-toggle.is-active .bar:nth-child(2) {
+    opacity: 0;
+}
+
+.menu-toggle.is-active .bar:nth-child(3) {
+    -webkit-transform: translateY(-8.5px) rotate(-45deg);
+    transform: translateY(-8.5px) rotate(-45deg);
+    background-color: var(--burger-color-active);
+}
+
+/* Liens principaux */
+.nav-links {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    list-style: none;
+    gap: 28px;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-links a {
+    color: var(--nav-text);
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 500;
+    -webkit-transition: color 0.4s ease;
+    transition: color 0.4s ease;
+}
+
+/* Overlay */
+.menu-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    z-index: 998;
+    opacity: 0;
+    visibility: hidden;
+    -webkit-transition: opacity 0.3s ease, visibility 0.3s ease;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.menu-overlay.is-active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Mobile Offcanvas */
+@media (max-width: 768px) {
+    .menu-toggle {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+    }
+
+    .nav-menu {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        width: 280px;
+        height: 100vh;
+        background-color: #ffffff;
+        -webkit-box-shadow: -5px 0 25px rgba(0, 0, 0, 0.15);
+        box-shadow: -5px 0 25px rgba(0, 0, 0, 0.15);
+        padding: 100px 32px 32px 32px;
+        z-index: 999;
+        -webkit-transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-align: stretch;
+        -ms-flex-align: stretch;
+        align-items: stretch;
+        gap: 28px;
+    }
+
+    .nav-menu.is-active {
+        right: 0;
+    }
+
+    .nav-links {
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .nav-links a {
+        color: #111827 !important;
+        font-size: 1.1rem;
+    }
+
+    .nav-actions {
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .nav-btn {
+        width: 100%;
+        min-width: 0;
+    }
+}

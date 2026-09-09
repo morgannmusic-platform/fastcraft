@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastCraft - Espace de gestion</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: #0d0d0d;
+            color: #f5f5f5;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #222;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            letter-spacing: -0.5px;
+        }
+
+        .btn-primary {
+            background-color: #ffffff;
+            color: #000000;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .sites-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .site-card {
+            background-color: #161616;
+            border: 1px solid #262626;
+            border-radius: 8px;
+            padding: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 140px;
+            cursor: pointer;
+            transition: border-color 0.2s, transform 0.1s;
+        }
+
+        .site-card:hover {
+            border-color: #444;
+            transform: translateY(-2px);
+        }
+
+        .site-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .site-card p {
+            color: #888;
+            font-size: 0.85rem;
+        }
+
+        /* Modal Styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal {
+            background: #181818;
+            border: 1px solid #333;
+            padding: 2rem;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .modal h2 {
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.6rem;
+            background: #0d0d0d;
+            border: 1px solid #333;
+            color: white;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .form-group input:focus {
+            border-color: #666;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.8rem;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #aaa;
+            border: 1px solid #333;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Mes Sites</h1>
+            <button class="btn-primary" id="openModalBtn">+ Créer un site</button>
+        </header>
+
+        <div class="sites-grid" id="sitesGrid">
+            <!-- Les sites seront injectés ici par le JS -->
+        </div>
+    </div>
+
+    <!-- Modal de création de site -->
+    <div class="modal-overlay" id="createModal">
+        <div class="modal">
+            <h2>Nouveau projet</h2>
+            <form id="createSiteForm">
+                <div class="form-group">
+                    <label for="siteName">Nom du site</label>
+                    <input type="text" id="siteName" placeholder="Mon super projet" required autofocus>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="closeModalBtn">Annuler</button>
+                    <button type="submit" class="btn-primary">Créer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://api.fastcraft.uk/api/sites';
+
+        const sitesGrid = document.getElementById('sitesGrid');
+        const createModal = document.getElementById('createModal');
+        const openModalBtn = document.getElementById('openModalBtn');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const createSiteForm = document.getElementById('createSiteForm');
+
+        // 1. Charger la liste des sites depuis l'API Cloudflare Worker
+        async function loadSites() {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+                const sites = await response.json();
+                sitesGrid.innerHTML = '';
+
+                if (!sites || sites.length === 0) {
+                    sitesGrid.innerHTML = '<p style="color:#666;">Aucun site pour le moment.</p>';
+                    return;
+                }
+
+                sites.forEach(site => {
+                    const card = document.createElement('div');
+                    card.className = 'site-card';
+                    card.onclick = () => window.location.href = `/site?id=${site.id}`;
+
+                    card.innerHTML = `
+            <div>
+              <h3>${escapeHtml(site.name)}</h3>
+              <p>ID: ${site.id}</p>
+            </div>
+            <p>Créé le : ${new Date(site.created_at).toLocaleDateString()}</p>
+          `;
+
+                    sitesGrid.appendChild(card);
+                });
+            } catch (err) {
+                console.error("Erreur lors du chargement des sites :", err);
+                sitesGrid.innerHTML = '<p style="color:#e53e3e;">Impossible de charger la liste des sites.</p>';
+            }
+        }
+
+        // 2. Création d'un nouveau site via POST vers Worker
+        createSiteForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('siteName').value.trim();
+
+            if (!name) return;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+
+                if (!response.ok) {
+                    const errorMsg = await response.text();
+                    throw new Error(`Erreur serveur (${response.status}): ${errorMsg}`);
+                }
+
+                const data = await response.json();
+
+                if (data.id) {
+                    // Redirection directe vers /site?id=...
+                    window.location.href = `/site?id=${data.id}`;
+                }
+            } catch (err) {
+                console.error("Erreur lors de la création du site :", err);
+                alert("Erreur lors de la création du site.");
+            }
+        });
+
+        // Utilitaires UI
+        openModalBtn.onclick = () => createModal.style.display = 'flex';
+        closeModalBtn.onclick = () => createModal.style.display = 'none';
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        // Initialisation
+        loadSites();
+    </script>
+</body>
+
+</html>
