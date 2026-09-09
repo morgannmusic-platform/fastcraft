@@ -4,297 +4,430 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Éditeur de Site Web Visuel</title>
-  <!-- Inclusion de Font Awesome pour les icônes de la barre d'outils -->
+  <title>FastCraft - Éditeur Visuel Avancé</title>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Roboto:wght@300;400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700&family=Courier+Prime:wght@400;700&family=Pacifico&display=swap">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style id="custom-css-holder"></style>
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-  <!-- ZONE DE TRAVAIL (CANVAS/SITE) -->
-  <div id="site-canvas" class="canvas-background">
-    <!-- Barre de navigation modifiable -->
-    <header id="site-header" class="editable-element header-element" data-type="header">
-      <div class="nav-logo" contenteditable="true">MonSite</div>
-      <nav class="nav-links">
-        <a href="#" contenteditable="true">Accueil</a>
-        <a href="#" contenteditable="true">À propos</a>
-        <a href="#" contenteditable="true">Services</a>
-        <a href="#" contenteditable="true">Contact</a>
-      </nav>
-    </header>
+  <!-- SIDEBAR GAUCHE : ÉLÉMENTS & COULEURS DU SITE -->
+  <aside class="sidebar-left" id="sidebarLeft">
+    <div class="panel-header" id="sidebarLeftHeader">Éléments</div>
 
-    <!-- Zone de contenu libre -->
-    <main id="site-body">
-      <!-- Exemple d'éléments de départ -->
-      <div class="editable-element text-element" data-type="text" style="top: 150px; left: 100px;">
-        <div class="text-content" contenteditable="true">Cliquez ici pour éditer le texte</div>
-      </div>
-    </main>
-
-    <!-- Pied de page modifiable -->
-    <footer id="site-footer" class="editable-element footer-element" data-type="footer">
-      <p contenteditable="true">© 2026 MonSite - Tous droits réservés.</p>
-    </footer>
-  </div>
-
-  <!-- BARRE D'ÉDITION FLOTTANTE (ADAPTATIVE) -->
-  <div id="floating-toolbar" class="floating-toolbar hidden">
-    <!-- Poignée de déplacement de la barre -->
-    <div class="toolbar-drag-handle"><i class="fas fa-grip-vertical"></i></div>
-
-    <!-- OUTILS FOND / CANVAS -->
-    <div class="tool-group" data-for="canvas">
-      <button class="tool-btn" id="btn-bg-color-picker" title="Couleur de fond">
-        <span class="color-preview-circle" id="bg-color-preview"></span>
-      </button>
+    <!-- CONTENUE 1 : LISTE DES ÉLÉMENTS DRAGGABLE -->
+    <div class="elements-list" id="elementsSidebarView">
+      <div class="draggable-item" draggable="true" data-type="text"><span>📝</span> Bloc Texte</div>
+      <div class="draggable-item" draggable="true" data-type="button"><span>🔘</span> Bouton</div>
+      <div class="draggable-item" draggable="true" data-type="image"><span>🖼️</span> Photo</div>
+      <div class="draggable-item" draggable="true" data-type="shape"><span>🔲</span> Forme / Conteneur</div>
     </div>
 
-    <!-- OUTILS FORMES (CANVA-LIKE) -->
-    <div class="tool-group hidden" data-for="shape">
-      <button class="tool-btn" id="btn-shape-color" title="Couleur de remplissage"><i
-          class="fas fa-fill-drip"></i></button>
-      <div class="input-with-label" title="Nombre de côtés (Polygone)">
-        <i class="fas fa-draw-polygon"></i>
-        <input type="number" id="shape-sides" min="3" max="20" value="4">
-      </div>
-      <button class="tool-btn" id="btn-shape-border" title="Style de contour"><i
-          class="fas fa-border-style"></i></button>
-      <div class="input-with-label" title="Border Radius">
-        <i class="fas fa-square-full"></i>
-        <input type="range" id="shape-radius" min="0" max="100" value="0">
-      </div>
-      <div class="input-with-label" title="Opacité / Transparence">
-        <i class="fas fa-eye"></i>
-        <input type="range" id="shape-opacity" min="0" max="1" step="0.05" value="1">
-      </div>
-      <div class="input-with-label" title="Flou d'arrière-plan (Backdrop Blur)">
-        <i class="fas fa-water"></i>
-        <input type="range" id="shape-blur" min="0" max="50" value="0">
-      </div>
-    </div>
-
-    <!-- OUTILS IMAGE -->
-    <div class="tool-group hidden" data-for="image">
-      <button class="tool-btn" id="btn-change-image" title="Changer l'image"><i class="fas fa-image"></i></button>
-      <div class="input-with-label" title="Opacité">
-        <i class="fas fa-eye"></i>
-        <input type="range" id="img-opacity" min="0" max="1" step="0.05" value="1">
-      </div>
-      <div class="input-with-label" title="Arrondi des angles">
-        <i class="fas fa-square-full"></i>
-        <input type="range" id="img-radius" min="0" max="100" value="0">
-      </div>
-      <div class="input-with-label" title="Flou">
-        <i class="fas fa-box-tissue"></i>
-        <input type="range" id="img-blur" min="0" max="20" value="0">
-      </div>
-    </div>
-
-    <!-- OUTILS TEXTE COMPLET -->
-    <div class="tool-group hidden" data-for="text">
-      <select id="text-font-family" title="Police de caractères">
-        <option value="Arial">Arial</option>
-        <option value="Roboto">Roboto</option>
-        <option value="Times New Roman">Times New Roman</option>
-        <option value="Courier New">Courier New</option>
-        <option value="Georgia">Georgia</option>
-        <option value="Montserrat">Montserrat</option>
-      </select>
-      <input type="number" id="text-font-size" title="Taille" value="16" min="8" max="200">
-      <button class="tool-btn" id="btn-text-color" title="Couleur de texte / Dégradé"><i
-          class="fas fa-font"></i></button>
-      <button class="tool-btn" id="btn-bold" title="Gras"><i class="fas fa-bold"></i></button>
-      <button class="tool-btn" id="btn-italic" title="Italique"><i class="fas fa-italic"></i></button>
-      <button class="tool-btn" id="btn-underline" title="Souligné"><i class="fas fa-underline"></i></button>
-      <button class="tool-btn" id="btn-align-left" title="Aligner à gauche"><i class="fas fa-align-left"></i></button>
-      <button class="tool-btn" id="btn-align-center" title="Centrer"><i class="fas fa-align-center"></i></button>
-      <button class="tool-btn" id="btn-align-right" title="Aligner à droite"><i class="fas fa-align-right"></i></button>
-      <button class="tool-btn" id="btn-align-justify" title="Justifier"><i class="fas fa-align-justify"></i></button>
-      <div class="input-with-label" title="Hauteur de ligne">
-        <i class="fas fa-arrows-alt-v"></i>
-        <input type="number" id="text-line-height" step="0.1" value="1.2" min="0.5" max="3">
-      </div>
-      <div class="input-with-label" title="Espacement des lettres">
-        <i class="fas fa-arrows-alt-h"></i>
-        <input type="number" id="text-letter-spacing" step="0.5" value="0" min="-5" max="20">
-      </div>
-    </div>
-
-    <!-- OUTILS NAVBAR & FOOTER -->
-    <div class="tool-group hidden" data-for="header">
-      <button class="tool-btn" id="btn-nav-bg" title="Couleur de fond du menu"><i
-          class="fas fa-paint-roller"></i></button>
-      <button class="tool-btn" id="btn-nav-add-link" title="Ajouter un lien"><i class="fas fa-plus"></i> Lien</button>
-      <div class="input-with-label" title="Hauteur">
-        <i class="fas fa-ruler-vertical"></i>
-        <input type="number" id="nav-height" value="60">
-      </div>
-    </div>
-
-    <div class="tool-group hidden" data-for="footer">
-      <button class="tool-btn" id="btn-footer-bg" title="Couleur de fond du pied de page"><i
-          class="fas fa-paint-roller"></i></button>
-      <div class="input-with-label" title="Hauteur">
-        <i class="fas fa-ruler-vertical"></i>
-        <input type="number" id="footer-height" value="100">
-      </div>
-    </div>
-
-    <!-- OUTILS COMMUNS (CALQUES, CSS, SUPPRESSION) -->
-    <div class="tool-group common-tools">
-      <div class="divider"></div>
-      <button class="tool-btn" id="btn-layer-up" title="Avancer (Calque)"><i class="fas fa-layer-group"></i><i
-          class="fas fa-arrow-up btn-sub-icon"></i></button>
-      <button class="tool-btn" id="btn-layer-down" title="Reculer (Calque)"><i class="fas fa-layer-group"></i><i
-          class="fas fa-arrow-down btn-sub-icon"></i></button>
-      <button class="tool-btn" id="btn-edit-css" title="Modifier le CSS Personnalisé"><i class="fas fa-code"></i>
-        CSS</button>
-      <button class="tool-btn danger" id="btn-delete" title="Supprimer l'élément"><i class="fas fa-trash"></i></button>
-    </div>
-  </div>
-
-  <!-- SIDEBAR DÉDIÉE : PALETTE & GESTION DES COULEURS / DÉGRADÉS -->
-  <aside id="color-sidebar" class="sidebar hidden">
-    <div class="sidebar-header">
-      <h3>Éditeur de Couleur & Dégradé</h3>
-      <button class="close-sidebar-btn" id="close-color-sidebar"><i class="fas fa-times"></i></button>
-    </div>
-
-    <div class="sidebar-content">
-      <!-- Onglets Type de Couleur -->
-      <div class="color-type-tabs">
-        <button class="tab-btn active" data-tab="solid">Uni</button>
-        <button class="tab-btn" data-tab="linear">Dégradé Linéaire</button>
-        <button class="tab-btn" data-tab="radial">Dégradé Radial</button>
+    <!-- CONTENUE 2 : PANNEAU DE COULEUR INTERNE DU SITE (REMPLACE ÉLÉMENTS QUAND CLIC SUR FOND/BOUTON) -->
+    <div class="elements-list" id="colorSidebarView" style="display:none;">
+      <div class="form-group">
+        <label>Type de Remplissage</label>
+        <select id="bgTypeSelect" class="tb-select" style="width:100%;" onchange="switchBgType(this.value)">
+          <option value="solid">Couleur Unie</option>
+          <option value="linear">Dégradé Linéaire</option>
+          <option value="radial">Dégradé Radial (Interactif)</option>
+        </select>
       </div>
 
-      <!-- CONTENU : COULEUR UNIE -->
-      <div class="tab-content active" id="tab-solid">
-        <div class="custom-color-picker-container">
-          <div id="picker-sat-val" class="picker-box">
-            <div id="picker-cursor"></div>
+      <!-- COULEUR UNIE -->
+      <div id="solidColorPanel" class="form-group">
+        <label>Couleur principale</label>
+        <div class="custom-color-picker">
+          <div class="picker-area" id="pickerCanvasArea">
+            <div class="picker-handle" id="pickerHandle"></div>
           </div>
-          <div id="picker-hue" class="hue-slider">
-            <div id="hue-cursor"></div>
-          </div>
-          <div id="picker-alpha" class="alpha-slider">
-            <div id="alpha-cursor"></div>
-          </div>
-        </div>
-        <div class="color-hex-input">
-          <label>Code HEX/RGBA :</label>
-          <input type="text" id="solid-color-hex" value="#ffffff">
+          <input type="range" min="0" max="360" value="0" class="hue-slider" id="hueSlider"
+            oninput="updateCustomPicker()">
+          <input type="range" min="0" max="1" step="0.01" value="1" class="alpha-slider" id="alphaSlider"
+            oninput="updateCustomPicker()">
         </div>
       </div>
 
-      <!-- CONTENU : DÉGRADÉ LINÉAIRE -->
-      <div class="tab-content" id="tab-linear">
-        <div class="gradient-preview-box" id="linear-preview"></div>
-
-        <div class="angle-selector-container">
-          <label>Orientation (Degrés) : <span id="angle-value">90°</span></label>
-          <div class="angle-wheel" id="angle-wheel">
-            <div class="angle-pointer" id="angle-pointer"></div>
-          </div>
-          <div class="angle-presets">
-            <button class="angle-btn" data-angle="0">0°</button>
-            <button class="angle-btn" data-angle="90">90°</button>
-            <button class="angle-btn" data-angle="180">180°</button>
-            <button class="angle-btn" data-angle="270">270°</button>
-          </div>
+      <!-- DÉGRADÉ LINÉAIRE (AVEC CHOIX DE DEGRÉS ET PRÉVISUALISATION DIRECTE) -->
+      <div id="linearGradientPanel" class="form-group" style="display:none;">
+        <label>Angles & Orientations (°)</label>
+        <div class="degree-presets">
+          <button class="degree-btn" onclick="setLinearAngle(0)">0° <span class="degree-preview"
+              style="background: linear-gradient(0deg, #3b82f6, #9333ea);"></span></button>
+          <button class="degree-btn" onclick="setLinearAngle(45)">45° <span class="degree-preview"
+              style="background: linear-gradient(45deg, #3b82f6, #9333ea);"></span></button>
+          <button class="degree-btn" onclick="setLinearAngle(90)">90° <span class="degree-preview"
+              style="background: linear-gradient(90deg, #3b82f6, #9333ea);"></span></button>
+          <button class="degree-btn" onclick="setLinearAngle(135)">135° <span class="degree-preview"
+              style="background: linear-gradient(135deg, #3b82f6, #9333ea);"></span></button>
+          <button class="degree-btn" onclick="setLinearAngle(180)">180° <span class="degree-preview"
+              style="background: linear-gradient(180deg, #3b82f6, #9333ea);"></span></button>
+          <button class="degree-btn" onclick="setLinearAngle(270)">270° <span class="degree-preview"
+              style="background: linear-gradient(270deg, #3b82f6, #9333ea);"></span></button>
         </div>
-
-        <div class="gradient-stops-manager">
-          <label>Points de couleur :</label>
-          <div id="linear-stops-list"></div>
-          <button class="btn-secondary" id="add-linear-stop"><i class="fas fa-plus"></i> Ajouter un point</button>
-        </div>
-      </div>
-
-      <!-- CONTENU : DÉGRADÉ RADIAL (PLACABLE DIRECTEMENT SUR SITE) -->
-      <div class="tab-content" id="tab-radial">
-        <div class="gradient-preview-box" id="radial-preview"></div>
-        <p class="info-text"><i class="fas fa-info-circle"></i> Placez et déplacez le centre du dégradé directement sur
-          la page en maintenant le clic.</p>
-
-        <div class="radial-controls">
-          <button class="btn-primary" id="btn-toggle-radial-interactive">
-            <i class="fas fa-crosshairs"></i> Ajuster le centre sur le site
-          </button>
-        </div>
-
-        <div class="gradient-stops-manager">
-          <label>Points de couleur :</label>
-          <div id="radial-stops-list"></div>
-          <button class="btn-secondary" id="add-radial-stop"><i class="fas fa-plus"></i> Ajouter un point</button>
+        <div style="margin-top:0.8rem;">
+          <label>Couleur de Départ</label>
+          <input type="color" id="linearColor1" value="#3b82f6" onchange="applyLinearGradient()">
+          <label style="margin-top:0.5rem;">Couleur de Fin</label>
+          <input type="color" id="linearColor2" value="#9333ea" onchange="applyLinearGradient()">
         </div>
       </div>
 
-      <!-- COULEURS ENREGISTRÉES -->
-      <div class="saved-colors-section">
-        <h4>Couleurs sauvegardées</h4>
-        <div class="saved-colors-grid" id="saved-colors-grid">
-          <!-- Rempli en JS -->
+      <!-- DÉGRADÉ RADIAL INTERACTIF (PLACEMENT DES POINTS SUR LE SITE) -->
+      <div id="radialGradientPanel" class="form-group" style="display:none;">
+        <label>Points du Dégradé Radial</label>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem;">
+          Cliquez pour ajouter des points et déplacez-les directement sur le site.
+        </p>
+        <button class="tb-btn" style="width:100%; justify-content:center; padding:0.5rem;"
+          onclick="addRadialPointOnCanvas()">+ Ajouter un point interactif</button>
+        <div id="radialPointsList" style="margin-top:0.8rem; display:flex; flex-direction:column; gap:0.4rem;"></div>
+      </div>
+
+      <!-- COULEURS SAUVEGARDÉES / PALETTE DE SITE -->
+      <div class="form-group" style="margin-top:1.5rem; border-top:1px solid var(--panel-border); padding-top:1rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+          <label style="margin:0;">Palette Enregistrée</label>
+          <button class="tb-btn" onclick="saveCurrentColorToPalette()">💾 Enregistrer</button>
         </div>
-        <button class="btn-secondary" id="btn-save-current-color"><i class="fas fa-bookmark"></i> Enregistrer cette
-          couleur</button>
+        <div class="saved-palette" id="savedPaletteGrid"></div>
       </div>
     </div>
   </aside>
 
-  <!-- MODALE INTUITIVE DE CODE CSS PERSONNALISÉ (TOUT PUBLIC) -->
-  <div id="css-editor-modal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Style Personnalisé (CSS Simplifié & Avancé)</h3>
-        <button class="close-modal-btn" id="close-css-modal"><i class="fas fa-times"></i></button>
-      </div>
-      <div class="modal-body">
-        <p class="help-text">Modifiez l'apparence visuelle directement ou écrivez des règles CSS avancées.</p>
+  <!-- CANEVAS CENTRAL -->
+  <main class="main-workspace">
+    <header class="topbar">
+      <div>Site ID: <span id="siteIdDisplay" style="color: var(--accent);">---</span></div>
+      <div class="save-badge" id="saveStatus">☁️ Synchro auto active</div>
+    </header>
 
-        <!-- Interface Visuelle Simplifiée -->
-        <div class="simple-css-grid">
-          <div class="input-group">
-            <label>Ombre de la boîte (Box Shadow)</label>
-            <input type="text" id="css-box-shadow" placeholder="0px 10px 20px rgba(0,0,0,0.19)">
-          </div>
-          <div class="input-group">
-            <label>Marge externe (Margin)</label>
-            <input type="text" id="css-margin" placeholder="10px auto">
-          </div>
-          <div class="input-group">
-            <label>Marge interne (Padding)</label>
-            <input type="text" id="css-padding" placeholder="15px">
-          </div>
-          <div class="input-group">
-            <label>Filtres CSS (Luminosité, Contraste...)</label>
-            <input type="text" id="css-filter" placeholder="contrast(120%) brightness(90%)">
-          </div>
+    <div class="canvas-container" id="canvasContainer">
+      <!-- BARRE D'ÉDITION FLOTTANTE COMPLETE & ADAPTATIVE -->
+      <div class="floating-toolbar active" id="floatingToolbar">
+        <!-- COULEUR & ROND DE FOND -->
+        <div class="toolbar-group">
+          <button class="color-preview-btn" id="tbBgColorCircle" title="Changer la couleur"
+            onclick="openBgColorSidebar()">
+            <span class="color-dot" id="tbBgColorDot" style="background:#ffffff;"></span>
+          </button>
         </div>
 
-        <!-- Code CSS Brut pour les experts -->
-        <div class="advanced-css-container">
-          <label>Code CSS Brut appliqué à l'élément :</label>
-          <textarea id="raw-css-input" rows="6"
-            placeholder="/* Entrez du CSS ici, ex: transform: rotate(5deg); */"></textarea>
+        <!-- OUTILS TEXTE (RÉGLAGE COMPLET) -->
+        <div class="toolbar-group tool-context" id="groupTextTools">
+          <select class="tb-select" id="tbFontFamily" onchange="applyStyle('fontFamily', this.value)">
+            <option value="'Inter', sans-serif">Inter</option>
+            <option value="'Roboto', sans-serif">Roboto</option>
+            <option value="'Playfair Display', serif">Playfair Display</option>
+            <option value="'Montserrat', sans-serif">Montserrat</option>
+            <option value="'Courier Prime', monospace">Courier</option>
+            <option value="'Pacifico', cursive">Pacifico</option>
+          </select>
+          <input type="number" class="tb-input" id="tbFontSize" style="width:55px" value="16" title="Taille de police"
+            onchange="applyStyle('fontSize', this.value + 'px')">
+          <button class="tb-btn" title="Gras" onclick="applyTextFormat('bold')"><b>B</b></button>
+          <button class="tb-btn" title="Italique" onclick="applyTextFormat('italic')"><i>I</i></button>
+          <button class="tb-btn" title="Souligné" onclick="applyTextFormat('underline')"><u>U</u></button>
+          <button class="tb-btn" title="Couleur Texte" onclick="openColorModal('text')">🎨 Texte</button>
+          <button class="tb-btn" title="Lien" onclick="openLinkModal()">🔗</button>
+        </div>
+
+        <!-- ALIGNEMENT -->
+        <div class="toolbar-group tool-context" id="groupAlignTools">
+          <button class="tb-btn" title="Aligner à gauche" onclick="applyStyle('textAlign', 'left')">⬅️</button>
+          <button class="tb-btn" title="Centrer" onclick="applyStyle('textAlign', 'center')">↔️</button>
+          <button class="tb-btn" title="Aligner à droite" onclick="applyStyle('textAlign', 'right')">➡️</button>
+        </div>
+
+        <!-- OUTILS FORME & IMAGE (STYLE CANVA) -->
+        <div class="toolbar-group tool-context" id="groupShapeTools" style="display:none;">
+          <span style="font-size:0.75rem; color:var(--text-muted);">Côtés:</span>
+          <input type="number" class="tb-input" id="tbShapeSides" style="width:45px" value="4" min="3" max="20"
+            onchange="updateShapeSides(this.value)">
+          <span style="font-size:0.75rem; color:var(--text-muted);">Contour:</span>
+          <input type="number" class="tb-input" id="tbBorderWidth" style="width:45px" value="0" min="0"
+            onchange="applyStyle('borderWidth', this.value + 'px')">
+          <input type="color" id="tbBorderColor" value="#000000" onchange="applyStyle('borderColor', this.value)">
+        </div>
+
+        <!-- EFFETS CANVA (ARRONDI, TRANSPARENCE, FLOU WEBKIT) -->
+        <div class="toolbar-group">
+          <button class="tb-btn" onclick="openAdvancedModal()">✨ Effets / Flou</button>
+        </div>
+
+        <!-- CALQUES & MODIFICATION CSS -->
+        <div class="toolbar-group">
+          <button class="tb-btn" title="Avancer" onclick="changeZIndex(1)">🔼</button>
+          <button class="tb-btn" title="Reculer" onclick="changeZIndex(-1)">🔽</button>
+          <button class="tb-btn" title="Modifier le CSS" onclick="openCssModal()">⚙️ CSS</button>
+          <button class="tb-btn" title="Supprimer" style="color:#ef4444;"
+            onclick="execContextMenu('delete')">🗑️</button>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" id="btn-cancel-css">Annuler</button>
-        <button class="btn-primary" id="btn-apply-css">Appliquer les modifications</button>
+
+      <!-- FRAME DU SITE -->
+      <div class="page-frame" id="pageFrame">
+        <!-- POINTS INTERACTIFS DE DÉGRADÉ RADIAL -->
+        <div id="radialHandlesContainer" class="radial-handles-layer"></div>
+
+        <!-- NAVIGATION BAR DU SITE -->
+        <header class="site-navbar" id="siteNavbar" onclick="selectSection('siteNavbar', event)">
+          <div class="logo" contenteditable="true">MonSite</div>
+          <nav id="navbarLinks"></nav>
+        </header>
+
+        <!-- CONTENU DYNAMIQUE / CANEVAS LIBRE -->
+        <main class="site-canvas" id="siteCanvas">
+          <div class="alignment-guides" id="alignmentGuides">
+            <div class="guide vertical" id="guideVertical"></div>
+            <div class="guide horizontal" id="guideHorizontal"></div>
+          </div>
+        </main>
+
+        <!-- PIED DE PAGE DU SITE -->
+        <footer class="site-footer" id="siteFooter" onclick="selectSection('siteFooter', event)">
+          <p contenteditable="true">© 2026 Tous droits réservés - Créé avec FastCraft</p>
+        </footer>
+
+        <!-- POIGNÉE D'AGRANDISSEMENT DU BAS DE PAGE -->
+        <div class="resize-handle-bottom" id="resizeHandle"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- SIDEBAR DROITE : PAR ONGLETS -->
+  <aside class="sidebar-right">
+    <div class="tabs-header">
+      <button class="tab-btn active" onclick="switchTab('pages', event)">Pages</button>
+      <button class="tab-btn" onclick="switchTab('structure', event)">Structure</button>
+      <button class="tab-btn" onclick="switchTab('domain', event)">Domaine</button>
+      <button class="tab-btn" onclick="switchTab('settings', event)">Paramètres</button>
+    </div>
+
+    <!-- ONGLET PAGES -->
+    <div class="tab-content active" id="tab-pages">
+      <button class="tb-btn" style="width:100%; justify-content:center; padding:0.6rem; margin-bottom:1rem;"
+        onclick="addNewPage()">+ Ajouter une page</button>
+      <div id="pagesContainer"></div>
+    </div>
+
+    <!-- ONGLET STRUCTURE (NAVBAR / FOOTER DESIGN) -->
+    <div class="tab-content" id="tab-structure">
+      <div class="form-group">
+        <label>Afficher la Navbar</label>
+        <select id="toggleNavbar" class="tb-select" style="width:100%;"
+          onchange="toggleSection('siteNavbar', this.value)">
+          <option value="flex">Oui</option>
+          <option value="none">Non</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Couleur / Fond de Navbar</label>
+        <input type="color" id="navbarBgColorInput" value="#ffffff"
+          onchange="updateSectionStyle('siteNavbar', 'backgroundColor', this.value)">
+      </div>
+      <div class="form-group">
+        <label>Afficher le Pied de Page</label>
+        <select id="toggleFooter" class="tb-select" style="width:100%;"
+          onchange="toggleSection('siteFooter', this.value)">
+          <option value="block">Oui</option>
+          <option value="none">Non</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Couleur / Fond du Pied de Page</label>
+        <input type="color" id="footerBgColorInput" value="#111111"
+          onchange="updateSectionStyle('siteFooter', 'backgroundColor', this.value)">
+      </div>
+    </div>
+
+    <!-- ONGLET DOMAINE & PUBLICATION -->
+    <div class="tab-content" id="tab-domain">
+      <div class="form-group">
+        <label>Sous-domaine personnalisé Cloudflare</label>
+        <div style="display:flex; gap:0.3rem;">
+          <input type="text" id="subdomainInput" placeholder="monsite">
+          <span style="align-self:center; font-size:0.8rem; color:#888;">.fastcraft.uk</span>
+        </div>
+      </div>
+      <button class="tb-btn" style="width:100%; justify-content:center; padding:0.6rem; background:var(--accent);"
+        onclick="publishSite()">🚀 Publier le site</button>
+      <div id="publishStatus" style="margin-top:1rem; font-size:0.8rem; color:#aaa;"></div>
+    </div>
+
+    <!-- ONGLET PARAMÈTRES SEO -->
+    <div class="tab-content" id="tab-settings">
+      <div class="form-group">
+        <label>Titre du site</label>
+        <input type="text" id="metaTitle" placeholder="Mon super site" onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="metaDescription" rows="3"
+          style="width:100%; background:#1c1c1c; border:1px solid #2a2a2a; color:#fff; padding:0.5rem; border-radius:4px; resize:vertical;"
+          onchange="saveMetaSettings()"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Favicon URL</label>
+        <input type="url" id="metaFavicon" placeholder="https://.../favicon.ico" onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Apple touch icon URL</label>
+        <input type="url" id="metaAppleTouch" placeholder="https://.../apple-touch-icon.png"
+          onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Image Open Graph</label>
+        <input type="url" id="metaOgImage" placeholder="https://.../og-image.jpg" onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Titre Open Graph</label>
+        <input type="text" id="metaOgTitle" placeholder="Mon site" onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Description Open Graph</label>
+        <textarea id="metaOgDescription" rows="2"
+          style="width:100%; background:#1c1c1c; border:1px solid #2a2a2a; color:#fff; padding:0.5rem; border-radius:4px; resize:vertical;"
+          onchange="saveMetaSettings()"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Twitter Card</label>
+        <select id="metaTwitterCard" class="tb-select" style="width:100%;" onchange="saveMetaSettings()">
+          <option value="summary">summary</option>
+          <option value="summary_large_image">summary_large_image</option>
+          <option value="app">app</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Twitter @site</label>
+        <input type="text" id="metaTwitterSite" placeholder="@fastcraft" onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Titre Twitter</label>
+        <input type="text" id="metaTwitterTitle" placeholder="Mon site" onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Description Twitter</label>
+        <textarea id="metaTwitterDescription" rows="2"
+          style="width:100%; background:#1c1c1c; border:1px solid #2a2a2a; color:#fff; padding:0.5rem; border-radius:4px; resize:vertical;"
+          onchange="saveMetaSettings()"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Canonical URL</label>
+        <input type="url" id="metaCanonical" placeholder="https://monsite.fastcraft.uk" onchange="saveMetaSettings()">
+      </div>
+    </div>
+  </aside>
+
+  <!-- MENU CONTEXTUEL (CLIC DROIT) -->
+  <div class="context-menu" id="contextMenu">
+    <div class="context-menu-item" onclick="execContextMenu('copy')">Copier <span>Ctrl+C</span></div>
+    <div class="context-menu-item" onclick="execContextMenu('cut')">Couper <span>Ctrl+X</span></div>
+    <div class="context-menu-item" onclick="execContextMenu('paste')">Coller <span>Ctrl+V</span></div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="execContextMenu('align-left')">Aligner à gauche</div>
+    <div class="context-menu-item" onclick="execContextMenu('align-center')">Centrer</div>
+    <div class="context-menu-item" onclick="execContextMenu('align-right')">Aligner à droite</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="execContextMenu('delete')" style="color:#ef4444;">Supprimer</div>
+  </div>
+
+  <!-- MODAL : LIEN -->
+  <div class="custom-modal-overlay" id="linkModal">
+    <div class="custom-modal">
+      <h3>Ajouter / Modifier un lien</h3>
+      <input type="text" id="linkUrlInput" placeholder="https://exemple.com ou #page">
+      <div class="custom-modal-actions">
+        <button class="tb-btn" onclick="closeModal('linkModal')">Annuler</button>
+        <button class="tb-btn" style="background:var(--accent);" onclick="applyLink()">Valider</button>
       </div>
     </div>
   </div>
 
-  <!-- REPRÈRE INTERACTIF POUR POSITIONNEMENT DU DÉGRADÉ RADIAL -->
-  <div id="radial-center-handle" class="radial-center-handle hidden">
-    <i class="fas fa-crosshairs"></i>
+  <!-- MODAL : COULEURS POUR TEXTE ET OBJET -->
+  <div class="custom-modal-overlay" id="colorModal">
+    <div class="custom-modal">
+      <h3 id="colorModalTitle">Gestion des Couleurs</h3>
+      <div class="form-group">
+        <label>Type de remplissage</label>
+        <select id="colorTypeSelect" class="tb-select" style="width:100%;" onchange="toggleGradientOptions(this.value)">
+          <option value="solid">Couleur Unie</option>
+          <option value="linear">Dégradé Linéaire</option>
+        </select>
+      </div>
+
+      <div id="solidColorGroup" class="form-group">
+        <label>Couleur</label>
+        <input type="color" id="solidColorInput" value="#ffffff">
+      </div>
+
+      <div id="gradientGroup" style="display:none;">
+        <div class="form-group">
+          <label>Angle (Degrés)</label>
+          <input type="number" id="gradAngle" value="90">
+        </div>
+        <div class="form-group">
+          <label>Couleur Début & Position (%)</label>
+          <div style="display:flex; gap:0.5rem;">
+            <input type="color" id="gradColor1" value="#3b82f6">
+            <input type="number" id="gradPos1" value="0" style="width:70px;">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Couleur Fin & Position (%)</label>
+          <div style="display:flex; gap:0.5rem;">
+            <input type="color" id="gradColor2" value="#9333ea">
+            <input type="number" id="gradPos2" value="100" style="width:70px;">
+          </div>
+        </div>
+      </div>
+
+      <div class="custom-modal-actions">
+        <button class="tb-btn" onclick="closeModal('colorModal')">Annuler</button>
+        <button class="tb-btn" style="background:var(--accent);" onclick="applyColorStyle()">Appliquer</button>
+      </div>
+    </div>
   </div>
 
-  <script src="script.js"></script>
+  <!-- MODAL : EFFETS AVANCÉS & FLOU WEBKIT -->
+  <div class="custom-modal-overlay" id="advancedModal">
+    <div class="custom-modal">
+      <h3>Arrondi, Transparence & Flou Canva</h3>
+      <div class="form-group">
+        <label>Arrondi des angles (Border Radius px)</label>
+        <input type="number" id="advBorderRadius" value="0" oninput="applyAdvancedStylesLive()">
+      </div>
+      <div class="form-group">
+        <label>Opacité / Transparence (0 à 1)</label>
+        <input type="number" id="advOpacity" step="0.1" min="0" max="1" value="1" oninput="applyAdvancedStylesLive()">
+      </div>
+      <div class="form-group">
+        <label>Flou d'arrière-plan (-webkit-backdrop-filter px)</label>
+        <input type="number" id="advBlur" value="0" oninput="applyAdvancedStylesLive()">
+      </div>
+      <div class="custom-modal-actions">
+        <button class="tb-btn" style="background:var(--accent);" onclick="closeModal('advancedModal')">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL : EDITEUR CSS INTUITIF GRAND PUBLIC -->
+  <div class="custom-modal-overlay" id="cssModal">
+    <div class="custom-modal">
+      <h3>Personnaliser le CSS de l'élément</h3>
+      <p style="font-size:0.75rem; color:var(--text-muted);">
+        Ajoutez du code CSS simplement (ex: box-shadow: 0 10px 20px rgba(0,0,0,0.5); transform: rotate(5deg);)
+      </p>
+      <textarea id="customCssInput" rows="6"
+        style="width:100%; background:#111; border:1px solid #333; color:#00ff66; padding:0.6rem; border-radius:4px; font-family:monospace; font-size:0.85rem; outline:none;"></textarea>
+      <div class="custom-modal-actions">
+        <button class="tb-btn" onclick="closeModal('cssModal')">Annuler</button>
+        <button class="tb-btn" style="background:var(--accent);" onclick="applyCustomCss()">Appliquer le CSS</button>
+      </div>
+    </div>
+  </div>
 
 </body>
 
