@@ -704,15 +704,70 @@
     const siteId = urlParams.get('id');
     document.getElementById('siteIdDisplay').innerText = siteId || 'Local';
 
-    let siteData = {
-      currentPage: 'index',
-      pages: {
-        'index': { name: 'Accueil', inNavbar: true, inFooter: true, elements: [] }
-      },
-      navbarVisible: true,
-      footerVisible: true,
-      subdomain: ''
-    };
+    function getDefaultSiteData() {
+      return {
+        currentPage: 'index',
+        pages: {
+          'index': { name: 'Accueil', inNavbar: true, inFooter: true, elements: [] }
+        },
+        navbarVisible: true,
+        footerVisible: true,
+        subdomain: ''
+      };
+    }
+
+    let siteData = getDefaultSiteData();
+
+    function normalizeSiteData(data) {
+      const base = getDefaultSiteData();
+      if (!data || typeof data !== 'object') return base;
+
+      const normalizedPages = {};
+      const sourcePages = data.pages && typeof data.pages === 'object' ? data.pages : base.pages;
+
+      Object.keys(sourcePages).forEach(function (key) {
+        const page = sourcePages[key];
+        if (!page || typeof page !== 'object') return;
+        normalizedPages[key] = {
+          name: typeof page.name === 'string' ? page.name : key,
+          inNavbar: Boolean(page.inNavbar),
+          inFooter: Boolean(page.inFooter),
+          elements: Array.isArray(page.elements) ? page.elements : []
+        };
+      });
+
+      if (!normalizedPages.index) {
+        normalizedPages.index = { ...base.pages.index };
+      }
+
+      return {
+        currentPage: data.currentPage && typeof data.currentPage === 'string' ? data.currentPage : 'index',
+        pages: normalizedPages,
+        navbarVisible: data.navbarVisible !== undefined ? Boolean(data.navbarVisible) : true,
+        footerVisible: data.footerVisible !== undefined ? Boolean(data.footerVisible) : true,
+        subdomain: typeof data.subdomain === 'string' ? data.subdomain : ''
+      };
+    }
+
+    function readLocalSiteState() {
+      try {
+        const raw = localStorage.getItem('fastcraft-site-' + siteId);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return normalizeSiteData(parsed);
+      } catch (_e) {
+        return null;
+      }
+    }
+
+    function isValidSitePayload(payload) {
+      if (!payload || typeof payload !== 'object') return false;
+      if (!payload.pages || typeof payload.pages !== 'object') return false;
+      const entries = Object.values(payload.pages);
+      return entries.some(function (page) {
+        return page && typeof page === 'object';
+      });
+    }
 
     let selectedElement = null;
     let clipboardData = null;
@@ -750,13 +805,17 @@
       if (!siteId) return;
       saveCurrentCanvasToMemory();
 
+      const safeSiteData = normalizeSiteData(siteData);
       try {
+        const payload = { content: safeSiteData };
         const res = await fetch(API_URL + '/' + siteId, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: siteData })
+          body: JSON.stringify(payload)
         });
         if (res.ok) {
+          siteData = safeSiteData;
+          localStorage.setItem('fastcraft-site-' + siteId, JSON.stringify(safeSiteData));
           document.getElementById('saveStatus').innerText = '☁️ Synchro auto active';
         }
       } catch (err) {
@@ -1226,21 +1285,48 @@
     // --- CHARGEMENT INITIAL ---
     async function init() {
       if (!siteId) return;
+
+      const cached = readLocalSiteState();
+      if (cached) {
+        siteData = cached;
+      }
+
       try {
         const res = await fetch(API_URL + '/' + siteId);
         if (res.ok) {
           const data = await res.json();
           if (data && data.content) {
-            siteData = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
-            renderPagesList();
-            loadCanvasFromMemory(siteData.currentPage || 'index');
-            if (siteData.subdomain) document.getElementById('subdomainInput').value = siteData.subdomain;
+            let parsedContent = data.content;
+            if (typeof parsedContent === 'string') {
+              try {
+                parsedContent = JSON.parse(parsedContent);
+              } catch (_e) {
+                parsedContent = null;
+              }
+            }
+
+            if (isValidSitePayload(parsedContent)) {
+              siteData = normalizeSiteData(parsedContent);
+              localStorage.setItem('fastcraft-site-' + siteId, JSON.stringify(siteData));
+            } else if (cached) {
+              siteData = cached;
+            }
           }
         }
       } catch (e) {
         console.error('Erreur chargement:', e);
+        if (cached) {
+          siteData = cached;
+        }
       }
+
       renderPagesList();
+      if (siteData.currentPage) {
+        loadCanvasFromMemory(siteData.currentPage);
+      }
+      if (siteData.subdomain) {
+        document.getElementById('subdomainInput').value = siteData.subdomain;
+      }
     }
 
     init();
