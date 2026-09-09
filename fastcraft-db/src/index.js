@@ -31,7 +31,6 @@ async function ensureSitesTable(env) {
     try {
         await env.DB.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_sites_subdomain ON sites(subdomain)').run();
     } catch (error) {
-        // L'ancienne base peut contenir des doublons temporaires ; on garde la validation applicative.
         console.warn('Index unique subdomain non créé:', error.message);
     }
 }
@@ -41,8 +40,8 @@ export default {
         const url = new URL(request.url);
         const host = request.headers.get('Host') || '';
 
-        // Liste des sous-domaines réservés pour ton infrastructure
-        const RESERVED_SUBDOMAINS = ['support', 'www', 'app', 'mail', 'admin'];
+        // Sous-domaines réservés pour le système
+        const RESERVED_SUBDOMAINS = ['support', 'www', 'app', 'mail', 'admin', 'api'];
 
         // En-têtes CORS pour autoriser l'accès depuis l'éditeur frontend
         const corsHeaders = {
@@ -52,7 +51,7 @@ export default {
             'Content-Type': 'application/json; charset=utf-8'
         };
 
-        // Preflight CORS (méthode OPTIONS)
+        // Gestion du préflight CORS (méthode OPTIONS)
         if (request.method === 'OPTIONS') {
             return new Response(null, { status: 204, headers: corsHeaders });
         }
@@ -67,10 +66,11 @@ export default {
 
             await ensureSitesTable(env);
 
-            const hostname = (request.headers.get('Host') || '').split(':')[0].toLowerCase();
+            const hostname = host.split(':')[0].toLowerCase();
             const firstLabel = hostname.split('.')[0] || '';
 
-            if (RESERVED_SUBDOMAINS.includes(firstLabel) && hostname.endsWith('.fastcraft.uk')) {
+            // Restriction d'accès aux sous-domaines réservés
+            if (RESERVED_SUBDOMAINS.includes(firstLabel) && hostname.endsWith('.fastcraft.uk') && firstLabel !== 'api') {
                 const site = await env.DB.prepare(
                     "SELECT published_html FROM sites WHERE subdomain = ?"
                 ).bind(firstLabel).first();
@@ -88,10 +88,12 @@ export default {
                 });
             }
 
-            // --- 1. GESTION DES REQUÊTES API ---
+            // ==================================================================
+            // 1. ENDPOINTS DE L'API REST
+            // ==================================================================
             if (url.pathname.startsWith('/api')) {
 
-                // GET /api/sites : Liste de tous les sites
+                // GET /api/sites : Obtenir la liste de tous les sites
                 if (request.method === 'GET' && url.pathname === '/api/sites') {
                     const { results } = await env.DB.prepare(
                         "SELECT id, name, subdomain, created_at FROM sites ORDER BY created_at DESC"
@@ -134,7 +136,7 @@ export default {
                     return new Response(JSON.stringify({ id, name: siteName, created_at: createdAt }), { status: 201, headers: corsHeaders });
                 }
 
-                // PUT /api/sites/:id : Enregistrement auto du contenu
+                // PUT /api/sites/:id : Sauvegarde automatique de la structure HTML/CSS/JS du site
                 if (request.method === 'PUT' && url.pathname.match(/^\/api\/sites\/[^\/]+$/)) {
                     const id = url.pathname.split('/')[3];
                     const body = await request.json();
@@ -147,7 +149,7 @@ export default {
                     return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
                 }
 
-                // POST /api/sites/:id/publish : Publier le site en HTML et attribuer le sous-domaine
+                // POST /api/sites/:id/publish : Publier le rendu final avec son sous-domaine
                 if (request.method === 'POST' && url.pathname.match(/^\/api\/sites\/[^\/]+\/publish$/)) {
                     const id = url.pathname.split('/')[3];
                     const { subdomain, html } = await request.json();
@@ -158,12 +160,10 @@ export default {
 
                     const cleanSubdomain = subdomain.trim().toLowerCase();
 
-                    // Vérification des sous-domaines réservés
                     if (RESERVED_SUBDOMAINS.includes(cleanSubdomain)) {
                         return new Response(JSON.stringify({ error: 'Ce sous-domaine est réservé par le système.' }), { status: 403, headers: corsHeaders });
                     }
 
-                    // Vérification d'unicité dans la base D1
                     const existing = await env.DB.prepare(
                         "SELECT id FROM sites WHERE subdomain = ? AND id != ?"
                     ).bind(cleanSubdomain, id).first();
@@ -182,7 +182,9 @@ export default {
                 return new Response(JSON.stringify({ error: 'Route API non trouvée' }), { status: 404, headers: corsHeaders });
             }
 
-            // --- 2. SERVING DES SITES PUBLIÉS VIA SOUS-DOMAINE ---
+            // ==================================================================
+            // 2. RENDU PUBLIC DES SITES PUBLIÉS (SOUS-DOMAINES CLIENTS)
+            // ==================================================================
             if (host.endsWith('.fastcraft.uk')) {
                 const subdomain = host.split('.')[0].toLowerCase();
 
@@ -198,7 +200,7 @@ export default {
                         });
                     }
 
-                    return new Response('<h1>404 - Site non trouvé</h1>', {
+                    return new Response('<!DOCTYPE html><html><head><meta charset="utf-8"><title>404 Not Found</title></head><body><h1 style="text-align:center;margin-top:100px;">404 - Site non trouvé</h1></body></html>', {
                         status: 404,
                         headers: { 'Content-Type': 'text/html; charset=utf-8' }
                     });

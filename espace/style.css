@@ -1,0 +1,550 @@
+/* ==========================================================================
+   RESET & BASES
+   ========================================================================== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #eef2f5;
+    overflow-x: hidden;
+    user-select: none;
+}
+
+/* ==========================================================================
+   ZONE DE TRAVAIL / CANVAS
+   ========================================================================== */
+#site-canvas {
+    min-height: 100vh;
+    width: 100%;
+    position: relative;
+    background-color: #ffffff;
+    transition: background 0.1s ease;
+}
+
+.editable-element {
+    position: absolute;
+    min-width: 50px;
+    min-height: 30px;
+    cursor: move;
+    border: 1px transparent dashed;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.editable-element:hover {
+    border-color: #3b82f6;
+}
+
+.editable-element.selected {
+    border: 2px solid #2563eb !important;
+    box-shadow: 0 0 10px rgba(37, 99, 235, 0.3);
+}
+
+/* Header & Footer */
+#site-header, #site-footer {
+    position: relative !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+}
+
+#site-header {
+    height: 60px;
+    background-color: #1e293b;
+    color: #ffffff;
+}
+
+#site-header .nav-links a {
+    color: inherit;
+    margin-left: 15px;
+    text-decoration: none;
+}
+
+#site-footer {
+    height: 100px;
+    background-color: #0f172a;
+    color: #94a3b8;
+    justify-content: center;
+}
+
+#site-body {
+    position: relative;
+    min-height: calc(100vh - 160px);
+    width: 100%;
+}
+
+.text-content {
+    outline: none;
+    cursor: text;
+    user-select: text;
+}
+
+/* ==========================================================================
+   BARRE D'ÉDITION FLOTTANTE
+   ========================================================================== */
+.floating-toolbar {
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    gap: 10px;
+    z-index: 1000;
+    border: 1px solid #e2e8f0;
+    backdrop-filter: blur(10px);
+}
+
+.floating-toolbar.hidden {
+    display: none !important;
+}
+
+.toolbar-drag-handle {
+    cursor: grab;
+    color: #94a3b8;
+    padding: 4px 8px;
+}
+
+.tool-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tool-group.hidden {
+    display: none !important;
+}
+
+.tool-btn {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 10px;
+    cursor: pointer;
+    color: #334155;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: background 0.15s ease;
+}
+
+.tool-btn:hover {
+    background: #f1f5f9;
+}
+
+.tool-btn.active {
+    background: #e2e8f0;
+    color: #2563eb;
+}
+
+.tool-btn.danger:hover {
+    background: #fef2f2;
+    color: #ef4444;
+}
+
+.btn-sub-icon {
+    font-size: 8px;
+    margin-left: 2px;
+}
+
+.color-preview-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    display: inline-block;
+}
+
+.divider {
+    width: 1px;
+    height: 24px;
+    background-color: #cbd5e1;
+    margin: 0 4px;
+}
+
+.input-with-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.input-with-label input[type="number"], .floating-toolbar select {
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 4px 6px;
+    outline: none;
+    background: #f8fafc;
+}
+
+.input-with-label input[type="range"] {
+    width: 60px;
+}
+
+/* ==========================================================================
+   SIDEBAR : PALETTE DE COULEUR & DÉGRADÉS
+   ========================================================================== */
+.sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 320px;
+    height: 100vh;
+    background: #ffffff;
+    box-shadow: -5px 0 25px rgba(0,0,0,0.1);
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease;
+}
+
+.sidebar.hidden {
+    transform: translateX(100%);
+}
+
+.sidebar-header {
+    padding: 16px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sidebar-header h3 {
+    font-size: 16px;
+    color: #0f172a;
+}
+
+.close-sidebar-btn, .close-modal-btn {
+    background: transparent;
+    border: none;
+    font-size: 16px;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.sidebar-content {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.color-type-tabs {
+    display: flex;
+    gap: 4px;
+    background: #f1f5f9;
+    padding: 4px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.tab-btn {
+    flex: 1;
+    border: none;
+    padding: 6px;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.tab-btn.active {
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Custom Color Picker Canvas */
+.picker-box {
+    width: 100%;
+    height: 150px;
+    background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, rgba(255,0,0,0));
+    background-color: red;
+    position: relative;
+    border-radius: 6px;
+    cursor: crosshair;
+}
+
+#picker-cursor {
+    width: 12px;
+    height: 12px;
+    border: 2px solid white;
+    border-radius: 50%;
+    position: absolute;
+    box-shadow: 0 0 2px rgba(0,0,0,0.5);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+}
+
+.hue-slider, .alpha-slider {
+    width: 100%;
+    height: 12px;
+    border-radius: 6px;
+    margin-top: 12px;
+    position: relative;
+    cursor: pointer;
+}
+
+.hue-slider {
+    background: linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red);
+}
+
+.alpha-slider {
+    background: linear-gradient(to right, transparent, #000), url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="4" height="4" fill="%23ccc"/><rect x="4" y="4" width="4" height="4" fill="%23ccc"/></svg>');
+}
+
+#hue-cursor, #alpha-cursor {
+    width: 14px;
+    height: 14px;
+    background: white;
+    border: 1px solid #94a3b8;
+    border-radius: 50%;
+    position: absolute;
+    top: -1px;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.color-hex-input {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #475569;
+}
+
+.color-hex-input input {
+    padding: 6px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+}
+
+/* Dégradés Controls */
+.gradient-preview-box {
+    width: 100%;
+    height: 60px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    margin-bottom: 12px;
+}
+
+.angle-selector-container {
+    margin-bottom: 16px;
+}
+
+.angle-wheel {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    margin: 8px auto;
+    position: relative;
+    cursor: pointer;
+}
+
+.angle-pointer {
+    width: 2px;
+    height: 28px;
+    background: #2563eb;
+    position: absolute;
+    top: 2px;
+    left: 29px;
+    transform-origin: bottom center;
+}
+
+.angle-presets {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+
+.angle-btn {
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.gradient-stops-manager {
+    margin-top: 12px;
+}
+
+.stop-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.stop-row input[type="color"] {
+    border: none;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+}
+
+.stop-row input[type="number"] {
+    width: 50px;
+    padding: 2px;
+}
+
+.saved-colors-section {
+    margin-top: 24px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 12px;
+}
+
+.saved-colors-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+    margin: 10px 0;
+}
+
+.saved-color-swatch {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    cursor: pointer;
+}
+
+.btn-primary, .btn-secondary {
+    width: 100%;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+}
+
+.btn-primary { background: #2563eb; color: white; }
+.btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+
+.info-text {
+    font-size: 11px;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+/* ==========================================================================
+   MODALE CSS PERSONNALISÉ
+   ========================================================================== */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.modal.hidden {
+    display: none !important;
+}
+
+.modal-content {
+    background: #ffffff;
+    width: 500px;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 16px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+}
+
+.modal-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.simple-css-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+}
+
+.input-group input, textarea {
+    padding: 6px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-family: monospace;
+}
+
+.modal-footer {
+    padding: 12px 16px;
+    background: #f8fafc;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+/* ==========================================================================
+   POIGNÉE DÉGRADÉ RADIAL INTERACTIF
+   ========================================================================== */
+.radial-center-handle {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #2563eb;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 8px rgba(0,0,0,0.4);
+}
+
+.radial-center-handle.hidden {
+    display: none !important;
+}
