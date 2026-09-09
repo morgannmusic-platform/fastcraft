@@ -1117,6 +1117,14 @@
       return { x: snappedX, y: snappedY };
     }
 
+    function selectElement(el) {
+      if (selectedElement) selectedElement.classList.remove('selected');
+      selectedElement = el;
+      selectedElement.classList.add('selected');
+      renderFloatingToolbarPosition();
+      floatingToolbar.classList.add('active');
+    }
+
     document.addEventListener('click', function (e) {
       if (!e.target.closest('.canvas-element') && !e.target.closest('#floatingToolbar') && !e.target.closest('.custom-modal-overlay')) {
         if (selectedElement) selectedElement.classList.remove('selected');
