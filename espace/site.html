@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FastCraft - Éditeur Avancé</title>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Roboto:wght@300;400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700&family=Courier+Prime:wght@400;700&family=Pacifico&display=swap">
+  <style>
+    :root {
+      --bg-dark: #0a0a0a;
+      --panel-bg: #141414;
+      --panel-border: #262626;
+      --accent: #3b82f6;
+      --text-main: #ededed;
+      --text-muted: #888888;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+    }
+
+    body {
+      display: flex;
+      height: 100vh;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      overflow: hidden;
+    }
+
+    /* LAYOUT 3 COLONNES */
+    .sidebar-left {
+      width: 260px;
+      background: var(--panel-bg);
+      border-right: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+    }
+
+    .main-workspace {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .sidebar-right {
+      width: 320px;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+    }
+
+    .panel-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--panel-border);
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    /* LEFT SIDEBAR: DRAGGABLE ELEMENTS */
+    .elements-list {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      overflow-y: auto;
+    }
+
+    .draggable-item {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      cursor: grab;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      transition: all 0.2s;
+    }
+
+    .draggable-item:hover {
+      background: #282828;
+      border-color: #555;
+    }
+
+    /* CANVAS WORKSPACE */
+    .topbar {
+      height: 50px;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 1.5rem;
+      background: var(--panel-bg);
+    }
+
+    .canvas-container {
+      flex: 1;
+      padding: 2rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .page-frame {
+      width: 100%;
+      max-width: 900px;
+      min-height: 700px;
+      background: #ffffff;
+      color: #000000;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: height 0.1s ease;
+      margin-bottom: 2rem;
+    }
+
+    /* SECTIONS NATIVES DE LA PAGE */
+    .site-navbar {
+      padding: 1rem 2rem;
+      background: #ffffff;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-height: 60px;
+    }
+
+    .site-navbar .logo {
+      font-weight: bold;
+      font-size: 1.2rem;
+    }
+
+    .site-navbar nav {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .site-navbar nav a {
+      text-decoration: none;
+      color: inherit;
+      font-size: 0.9rem;
+    }
+
+    .site-canvas {
+      flex: 1;
+      padding: 2rem;
+      position: relative;
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .site-canvas.drag-over {
+      background: rgba(59, 130, 246, 0.05);
+      outline: 2px dashed var(--accent);
+    }
+
+    .site-footer {
+      padding: 2rem;
+      background: #111;
+      color: #fff;
+      border-top: 1px solid #222;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+
+    /* RESIZE HANDLE POUR LE BAS DE PAGE */
+    .resize-handle-bottom {
+      height: 12px;
+      background: var(--panel-border);
+      cursor: ns-resize;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background 0.2s;
+    }
+
+    .resize-handle-bottom:hover {
+      background: var(--accent);
+    }
+
+    .resize-handle-bottom::after {
+      content: '';
+      width: 30px;
+      height: 3px;
+      background: #666;
+      border-radius: 2px;
+    }
+
+    /* FLOATING TOOLBAR */
+    .floating-toolbar {
+      position: absolute;
+      top: -60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1f1f1f;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 0.4rem 0.8rem;
+      display: none;
+      align-items: center;
+      gap: 0.6rem;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      max-width: 95%;
+      flex-wrap: wrap;
+    }
+
+    .floating-toolbar.active {
+      display: flex;
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      border-right: 1px solid #333;
+      padding-right: 0.6rem;
+      margin-right: 0.1rem;
+    }
+
+    .toolbar-group:last-child {
+      border-right: none;
+      margin-right: 0;
+      padding-right: 0;
+    }
+
+    .tb-btn {
+      background: #2a2a2a;
+      border: 1px solid #3d3d3d;
+      color: #fff;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .tb-btn:hover {
+      background: #383838;
+    }
+
+    .tb-select,
+    .tb-input {
+      background: #2a2a2a;
+      border: 1px solid #3d3d3d;
+      color: #fff;
+      padding: 0.3rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      outline: none;
+    }
+
+    /* RENDERED ELEMENTS */
+    .canvas-element {
+      position: relative;
+      border: 1px solid transparent;
+      min-height: 20px;
+      transition: border-color 0.1s;
+    }
+
+    .canvas-element.selected {
+      outline: 2px solid var(--accent) !important;
+    }
+
+    /* CONTEXT MENU */
+    .context-menu {
+      position: fixed;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 6px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+      width: 180px;
+      display: none;
+      z-index: 1000;
+      padding: 0.3rem 0;
+    }
+
+    .context-menu-item {
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+      color: #ccc;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .context-menu-item:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .context-menu-divider {
+      height: 1px;
+      background: #333;
+      margin: 0.3rem 0;
+    }
+
+    /* RIGHT SIDEBAR TABS */
+    .tabs-header {
+      display: flex;
+      border-bottom: 1px solid var(--panel-border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 0.8rem 0.5rem;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab-btn.active {
+      color: #fff;
+      border-bottom-color: var(--accent);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .tab-content {
+      display: none;
+      padding: 1rem;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* TAB PAGES CONTENT */
+    .page-list-item {
+      background: #1c1c1c;
+      border: 1px solid #2a2a2a;
+      border-radius: 4px;
+      padding: 0.6rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .page-list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .page-list-item input[type="text"] {
+      background: #111;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 0.3rem;
+      border-radius: 3px;
+      font-size: 0.8rem;
+      width: 60%;
+    }
+
+    .page-options {
+      display: flex;
+      gap: 0.8rem;
+      font-size: 0.7rem;
+      color: #aaa;
+    }
+
+    /* MODALS SUR MESURE (SANS ALERTES NAVIGATEUR) */
+    .custom-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 2000;
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .custom-modal-overlay.active {
+      display: flex;
+    }
+
+    .custom-modal {
+      background: #181818;
+      border: 1px solid #333;
+      border-radius: 8px;
+      width: 400px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.9);
+    }
+
+    .custom-modal h3 {
+      font-size: 1rem;
+      color: #fff;
+    }
+
+    .custom-modal input,
+    .custom-modal select {
+      background: #111;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 0.6rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      width: 100%;
+      outline: none;
+    }
+
+    .custom-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    /* FORMS & INPUTS EN SIDEBAR */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      background: #1c1c1c;
+      border: 1px solid #2a2a2a;
+      color: #fff;
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
+
+    .save-badge {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- SIDEBAR GAUCHE : ÉLÉMENTS -->
+  <aside class="sidebar-left">
+    <div class="panel-header">Éléments</div>
+    <div class="elements-list">
+      <div class="draggable-item" draggable="true" data-type="text"><span>📝</span> Bloc Texte</div>
+      <div class="draggable-item" draggable="true" data-type="button"><span>🔘</span> Bouton</div>
+      <div class="draggable-item" draggable="true" data-type="image"><span>🖼️</span> Photo</div>
+      <div class="draggable-item" draggable="true" data-type="shape"><span>🔲</span> Forme / Conteneur</div>
+    </div>
+  </aside>
+
+  <!-- CANEVAS CENTRAL -->
+  <main class="main-workspace">
+    <header class="topbar">
+      <div>Site ID: <span id="siteIdDisplay" style="color: var(--accent);">---</span></div>
+      <div class="save-badge" id="saveStatus">☁️ Synchro auto active</div>
+    </header>
+
+    <div class="canvas-container" id="canvasContainer">
+      <!-- BARRE D'OUTILS FLOTTANTE -->
+      <div class="floating-toolbar" id="floatingToolbar">
+        <!-- POLICE & STYLE TEXTE -->
+        <div class="toolbar-group" id="groupTextTools">
+          <select class="tb-select" id="tbFontFamily" onchange="applyStyle('fontFamily', this.value)">
+            <option value="'Inter', sans-serif">Inter</option>
+            <option value="'Roboto', sans-serif">Roboto</option>
+            <option value="'Playfair Display', serif">Playfair Display</option>
+            <option value="'Montserrat', sans-serif">Montserrat</option>
+            <option value="'Courier Prime', monospace">Courier</option>
+            <option value="'Pacifico', cursive">Pacifico</option>
+          </select>
+          <input type="number" class="tb-input" id="tbFontSize" style="width:50px" value="16"
+            onchange="applyStyle('fontSize', this.value + 'px')">
+          <button class="tb-btn" onclick="applyTextFormat('bold')"><b>B</b></button>
+          <button class="tb-btn" onclick="applyTextFormat('italic')"><i>I</i></button>
+          <button class="tb-btn" onclick="openLinkModal()">🔗</button>
+        </div>
+
+        <!-- ALIGNEMENT -->
+        <div class="toolbar-group">
+          <button class="tb-btn" onclick="applyStyle('textAlign', 'left')">⬅️</button>
+          <button class="tb-btn" onclick="applyStyle('textAlign', 'center')">↔️</button>
+          <button class="tb-btn" onclick="applyStyle('textAlign', 'right')">➡️</button>
+        </div>
+
+        <!-- COULEURS & DÉGRADÉS -->
+        <div class="toolbar-group">
+          <button class="tb-btn" onclick="openColorModal('text')">🎨 Texte</button>
+          <button class="tb-btn" onclick="openColorModal('bg')">🖼️ Fond</button>
+        </div>
+
+        <!-- STYLES AVANCÉS (ARRONDI, TRANSPARENCE, FLOU) -->
+        <div class="toolbar-group">
+          <button class="tb-btn" onclick="openAdvancedModal()">✨ Effets & Forme</button>
+        </div>
+      </div>
+
+      <!-- FRAME DU SITE -->
+      <div class="page-frame" id="pageFrame">
+        <!-- NAVIGATION BAR DU SITE -->
+        <header class="site-navbar" id="siteNavbar">
+          <div class="logo" contenteditable="true">MonSite</div>
+          <nav id="navbarLinks"></nav>
+        </header>
+
+        <!-- CONTENU DYNAMIQUE -->
+        <main class="site-canvas" id="siteCanvas"></main>
+
+        <!-- PIED DE PAGE DU SITE -->
+        <footer class="site-footer" id="siteFooter">
+          <p contenteditable="true">© 2026 Tous droits réservés - Créé avec FastCraft</p>
+        </footer>
+
+        <!-- POIGNÉE D'AGRANDISSEMENT DU BAS DE PAGE -->
+        <div class="resize-handle-bottom" id="resizeHandle"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- SIDEBAR DROITE : PAR ONGLETS -->
+  <aside class="sidebar-right">
+    <div class="tabs-header">
+      <button class="tab-btn active" onclick="switchTab('pages', event)">Pages</button>
+      <button class="tab-btn" onclick="switchTab('structure', event)">Structure</button>
+      <button class="tab-btn" onclick="switchTab('domain', event)">Domaine</button>
+    </div>
+
+    <!-- ONGLET PAGES -->
+    <div class="tab-content active" id="tab-pages">
+      <button class="tb-btn" style="width:100%; justify-content:center; padding:0.6rem; margin-bottom:1rem;"
+        onclick="addNewPage()">+ Ajouter une page</button>
+      <div id="pagesContainer"></div>
+    </div>
+
+    <!-- ONGLET STRUCTURE (NAVBAR / FOOTER) -->
+    <div class="tab-content" id="tab-structure">
+      <div class="form-group">
+        <label>Afficher la Navbar</label>
+        <select id="toggleNavbar" onchange="toggleSection('siteNavbar', this.value)">
+          <option value="flex">Oui</option>
+          <option value="none">Non</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Afficher le Pied de Page</label>
+        <select id="toggleFooter" onchange="toggleSection('siteFooter', this.value)">
+          <option value="block">Oui</option>
+          <option value="none">Non</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ONGLET DOMAINE & PUBLICATION (PREPARATION FRONTEND) -->
+    <div class="tab-content" id="tab-domain">
+      <div class="form-group">
+        <label>Sous-domaine personnalisé Cloudflare</label>
+        <div style="display:flex; gap:0.3rem;">
+          <input type="text" id="subdomainInput" placeholder="monsite">
+          <span style="align-self:center; font-size:0.8rem; color:#888;">.fastcraft.uk</span>
+        </div>
+      </div>
+      <button class="tb-btn" style="width:100%; justify-content:center; padding:0.6rem; background:var(--accent);"
+        onclick="publishSite()">🚀 Publier le site</button>
+      <div id="publishStatus" style="margin-top:1rem; font-size:0.8rem; color:#aaa;"></div>
+    </div>
+  </aside>
+
+  <!-- MENU CONTEXTUEL (CLIC DROIT) -->
+  <div class="context-menu" id="contextMenu">
+    <div class="context-menu-item" onclick="execContextMenu('copy')">Copier <span>Ctrl+C</span></div>
+    <div class="context-menu-item" onclick="execContextMenu('cut')">Couper <span>Ctrl+X</span></div>
+    <div class="context-menu-item" onclick="execContextMenu('paste')">Coller <span>Ctrl+V</span></div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="execContextMenu('align-left')">Aligner à gauche</div>
+    <div class="context-menu-item" onclick="execContextMenu('align-center')">Centrer</div>
+    <div class="context-menu-item" onclick="execContextMenu('align-right')">Aligner à droite</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="execContextMenu('delete')" style="color:#ef4444;">Supprimer</div>
+  </div>
+
+  <!-- MODAL SUR MESURE : LIEN -->
+  <div class="custom-modal-overlay" id="linkModal">
+    <div class="custom-modal">
+      <h3>Ajouter / Modifier un lien</h3>
+      <input type="text" id="linkUrlInput" placeholder="https://exemple.com ou #page">
+      <div class="custom-modal-actions">
+        <button class="tb-btn" onclick="closeModal('linkModal')">Annuler</button>
+        <button class="tb-btn" style="background:var(--accent);" onclick="applyLink()">Valider</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SUR MESURE : COULEURS & DÉGRADÉS -->
+  <div class="custom-modal-overlay" id="colorModal">
+    <div class="custom-modal">
+      <h3 id="colorModalTitle">Gestion des Couleurs</h3>
+      <div class="form-group">
+        <label>Type de remplissage</label>
+        <select id="colorTypeSelect" onchange="toggleGradientOptions(this.value)">
+          <option value="solid">Couleur Unie</option>
+          <option value="linear">Dégradé Linéaire</option>
+          <option value="radial">Dégradé Radial</option>
+        </select>
+      </div>
+
+      <div id="solidColorGroup" class="form-group">
+        <label>Couleur</label>
+        <input type="color" id="solidColorInput" value="#ffffff">
+      </div>
+
+      <div id="gradientGroup" style="display:none;">
+        <div class="form-group">
+          <label>Angle (Degrés)</label>
+          <input type="number" id="gradAngle" value="90">
+        </div>
+        <div class="form-group">
+          <label>Couleur Début & Position (%)</label>
+          <div style="display:flex; gap:0.5rem;">
+            <input type="color" id="gradColor1" value="#3b82f6">
+            <input type="number" id="gradPos1" value="0" style="width:70px;">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Couleur Fin & Position (%)</label>
+          <div style="display:flex; gap:0.5rem;">
+            <input type="color" id="gradColor2" value="#9333ea">
+            <input type="number" id="gradPos2" value="100" style="width:70px;">
+          </div>
+        </div>
+      </div>
+
+      <div class="custom-modal-actions">
+        <button class="tb-btn" onclick="closeModal('colorModal')">Annuler</button>
+        <button class="tb-btn" style="background:var(--accent);" onclick="applyColorStyle()">Appliquer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SUR MESURE : EFFETS AVANCÉS -->
+  <div class="custom-modal-overlay" id="advancedModal">
+    <div class="custom-modal">
+      <h3>Arrondi, Transparence & Flou</h3>
+      <div class="form-group">
+        <label>Arrondi des angles (px)</label>
+        <input type="number" id="advBorderRadius" value="0">
+      </div>
+      <div class="form-group">
+        <label>Opacité / Transparence (0 à 1)</label>
+        <input type="number" id="advOpacity" step="0.1" min="0" max="1" value="1">
+      </div>
+      <div class="form-group">
+        <label>Flou d'arrière-plan (Backdrop Blur px)</label>
+        <input type="number" id="advBlur" value="0">
+      </div>
+      <div class="custom-modal-actions">
+        <button class="tb-btn" onclick="closeModal('advancedModal')">Annuler</button>
+        <button class="tb-btn" style="background:var(--accent);" onclick="applyAdvancedStyles()">Valider</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'https://api.fastcraft.uk/api/sites';
+    const urlParams = new URLSearchParams(window.location.search);
+    const siteId = urlParams.get('id');
+    document.getElementById('siteIdDisplay').innerText = siteId || 'Local';
+
+    let siteData = {
+      currentPage: 'index',
+      pages: {
+        'index': { name: 'Accueil', inNavbar: true, inFooter: true, elements: [] }
+      },
+      navbarVisible: true,
+      footerVisible: true,
+      subdomain: ''
+    };
+
+    let selectedElement = null;
+    let clipboardData = null;
+    let targetColorMode = 'text'; // 'text' ou 'bg'
+    let autoSaveTimeout = null;
+
+    const siteCanvas = document.getElementById('siteCanvas');
+    const floatingToolbar = document.getElementById('floatingToolbar');
+
+    function escapeHtml(value = '') {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/<\/script/gi, '<\\x3C/script');
+    }
+
+    function escapeAttribute(value = '') {
+      return escapeHtml(value)
+        .replace(/`/g, '\\`')
+        .replace(/\$\{/g, '\\${');
+    }
+
+    // --- AUTO-SAVE DEBOUNCE ---
+    function triggerAutoSave() {
+      document.getElementById('saveStatus').innerText = '⏳ Enregistrement...';
+      clearTimeout(autoSaveTimeout);
+      autoSaveTimeout = setTimeout(saveToServer, 1000);
+    }
+
+    async function saveToServer() {
+      if (!siteId) return;
+      saveCurrentCanvasToMemory();
+
+      try {
+        const res = await fetch(`${API_URL}/${siteId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: siteData })
+        });
+        if (res.ok) {
+          document.getElementById('saveStatus').innerText = '☁️ Synchro auto active';
+        }
+      } catch (err) {
+        document.getElementById('saveStatus').innerText = '⚠️ Erreur synchro';
+      }
+    }
+
+    // --- DRAG & DROP ÉLÉMENTS ---
+    document.querySelectorAll('.draggable-item').forEach(item => {
+      item.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('type', item.dataset.type);
+      });
+    });
+
+    siteCanvas.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      siteCanvas.classList.add('drag-over');
+    });
+
+    siteCanvas.addEventListener('dragleave', () => siteCanvas.classList.remove('drag-over'));
+
+    siteCanvas.addEventListener('drop', (e) => {
+      e.preventDefault();
+      siteCanvas.classList.remove('drag-over');
+      const type = e.dataTransfer.getData('type');
+      if (type) {
+        const newEl = createCanvasElement(type);
+        siteCanvas.appendChild(newEl);
+        selectElement(newEl);
+        triggerAutoSave();
+      }
+    });
+
+    // --- CRÉATION DE COMPOSANTS DANS LE CANEVAS ---
+    function createCanvasElement(type, data = {}) {
+      const el = document.createElement('div');
+      el.className = 'canvas-element';
+      el.dataset.type = type;
+
+      if (data.style) el.style.cssText = data.style;
+
+      switch (type) {
+        case 'text': {
+          const textValue = typeof data.text === 'string' ? data.text : (typeof data.html === 'string' ? data.html : 'Cliquez ici pour éditer le texte...');
+          el.innerHTML = `<div contenteditable="true" style="outline:none;">${escapeHtml(textValue)}</div>`;
+          break;
+        }
+        case 'button': {
+          const buttonText = typeof data.text === 'string' ? data.text : (typeof data.html === 'string' ? data.html : 'Mon Bouton');
+          el.innerHTML = `<button style="padding:0.6rem 1.2rem; background:#3b82f6; color:#fff; border:none; border-radius:4px; cursor:pointer;" contenteditable="true">${escapeHtml(buttonText)}</button>`;
+          break;
+        }
+        case 'image':
+          el.innerHTML = `<img src="${data.src || 'https://via.placeholder.com/400x200'}" style="max-width:100%; display:block; border-radius:inherit;" alt="Image">`;
+          el.onclick = (e) => {
+            if (e.detail === 2) { // Double clic pour changer la photo
+              openCustomPrompt("URL de l'image :", el.querySelector('img').src, (newUrl) => {
+                if (newUrl) { el.querySelector('img').src = newUrl; triggerAutoSave(); }
+              });
+            }
+          };
+          break;
+        case 'shape':
+          el.style.width = data.width || '100%';
+          el.style.height = data.height || '100px';
+          el.style.backgroundColor = data.bgColor || '#e2e8f0';
+          break;
+      }
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectElement(el);
+      });
+
+      el.addEventListener('input', () => triggerAutoSave());
+
+      return el;
+    }
+
+    // --- SÉLECTION D'ÉLÉMENT & BARRE FLOTTANTE ---
+    function selectElement(el) {
+      if (selectedElement) selectedElement.classList.remove('selected');
+      selectedElement = el;
+      selectedElement.classList.add('selected');
+
+      // Positionner la barre flottante au-dessus de l'élément
+      const rect = el.getBoundingClientRect();
+      const containerRect = document.getElementById('canvasContainer').getBoundingClientRect();
+
+      floatingToolbar.style.top = `${el.offsetTop - 50}px`;
+      floatingToolbar.classList.add('active');
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.canvas-element') && !e.target.closest('#floatingToolbar') && !e.target.closest('.custom-modal-overlay')) {
+        if (selectedElement) selectedElement.classList.remove('selected');
+        selectedElement = null;
+        floatingToolbar.classList.remove('active');
+      }
+    });
+
+    // --- APPLICATION DE STYLES VIA LA TOOLBAR ---
+    function applyStyle(property, value) {
+      if (selectedElement) {
+        selectedElement.style[property] = value;
+        triggerAutoSave();
+      }
+    }
+
+    function applyTextFormat(command) {
+      document.execCommand(command, false, null);
+      triggerAutoSave();
+    }
+
+    // --- MENU CONTEXTUEL (CLIC DROIT) ---
+    document.addEventListener('contextmenu', (e) => {
+      const targetEl = e.target.closest('.canvas-element');
+      if (targetEl) {
+        e.preventDefault();
+        selectElement(targetEl);
+        const menu = document.getElementById('contextMenu');
+        menu.style.top = `${e.clientY}px`;
+        menu.style.left = `${e.clientX}px`;
+        menu.style.display = 'block';
+      } else {
+        document.getElementById('contextMenu').style.display = 'none';
+      }
+    });
+
+    document.addEventListener('click', () => {
+      document.getElementById('contextMenu').style.display = 'none';
+    });
+
+    function execContextMenu(action) {
+      if (!selectedElement) return;
+
+      switch (action) {
+        case 'copy':
+          clipboardData = selectedElement.cloneNode(true);
+          break;
+        case 'cut':
+          clipboardData = selectedElement.cloneNode(true);
+          selectedElement.remove();
+          floatingToolbar.classList.remove('active');
+          triggerAutoSave();
+          break;
+        case 'paste':
+          if (clipboardData) {
+            const clone = clipboardData.cloneNode(true);
+            clone.addEventListener('click', (e) => { e.stopPropagation(); selectElement(clone); });
+            siteCanvas.appendChild(clone);
+            selectElement(clone);
+            triggerAutoSave();
+          }
+          break;
+        case 'align-left': applyStyle('textAlign', 'left'); break;
+        case 'align-center': applyStyle('textAlign', 'center'); break;
+        case 'align-right': applyStyle('textAlign', 'right'); break;
+        case 'delete':
+          selectedElement.remove();
+          floatingToolbar.classList.remove('active');
+          triggerAutoSave();
+          break;
+      }
+    }
+
+    // --- AGRANDISSEMENT DU BAS DE PAGE (RESIZE HANDLE) ---
+    const resizeHandle = document.getElementById('resizeHandle');
+    const pageFrame = document.getElementById('pageFrame');
+    let isResizing = false;
+
+    resizeHandle.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      document.body.style.cursor = 'ns-resize';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+      const rect = pageFrame.getBoundingClientRect();
+      const newHeight = e.clientY - rect.top;
+      if (newHeight > 400) {
+        pageFrame.style.minHeight = `${newHeight}px`;
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+        document.body.style.cursor = 'default';
+        triggerAutoSave();
+      }
+    });
+
+    // --- MODALES ET GESTION DES COULEURS / DÉGRADÉS ---
+    function openColorModal(mode) {
+      targetColorMode = mode;
+      document.getElementById('colorModalTitle').innerText = mode === 'text' ? 'Couleur & Dégradé du Texte' : 'Couleur & Dégradé du Fond';
+      document.getElementById('colorModal').classList.add('active');
+    }
+
+    function toggleGradientOptions(val) {
+      document.getElementById('solidColorGroup').style.display = val === 'solid' ? 'block' : 'none';
+      document.getElementById('gradientGroup').style.display = val !== 'solid' ? 'block' : 'none';
+    }
+
+    function applyColorStyle() {
+      if (!selectedElement) return;
+      const type = document.getElementById('colorTypeSelect').value;
+
+      if (type === 'solid') {
+        const color = document.getElementById('solidColorInput').value;
+        if (targetColorMode === 'text') {
+          selectedElement.style.color = color;
+          selectedElement.style.backgroundImage = 'none';
+          selectedElement.style.webkitBackgroundClip = 'initial';
+        } else {
+          selectedElement.style.backgroundColor = color;
+          selectedElement.style.backgroundImage = 'none';
+        }
+      } else {
+        const angle = document.getElementById('gradAngle').value;
+        const c1 = document.getElementById('gradColor1').value;
+        const p1 = document.getElementById('gradPos1').value;
+        const c2 = document.getElementById('gradColor2').value;
+        const p2 = document.getElementById('gradPos2').value;
+
+        const gradStr = type === 'linear'
+          ? `linear-gradient(${angle}deg, ${c1} ${p1}%, ${c2} ${p2}%)`
+          : `radial-gradient(circle, ${c1} ${p1}%, ${c2} ${p2}%)`;
+
+        if (targetColorMode === 'text') {
+          selectedElement.style.backgroundImage = gradStr;
+          selectedElement.style.webkitBackgroundClip = 'text';
+          selectedElement.style.webkitTextFillColor = 'transparent';
+        } else {
+          selectedElement.style.backgroundImage = gradStr;
+        }
+      }
+      closeModal('colorModal');
+      triggerAutoSave();
+    }
+
+    function openAdvancedModal() {
+      document.getElementById('advancedModal').classList.add('active');
+    }
+
+    function applyAdvancedStyles() {
+      if (!selectedElement) return;
+      const radius = document.getElementById('advBorderRadius').value;
+      const opacity = document.getElementById('advOpacity').value;
+      const blur = document.getElementById('advBlur').value;
+
+      selectedElement.style.borderRadius = `${radius}px`;
+      selectedElement.style.opacity = opacity;
+      if (blur > 0) {
+        selectedElement.style.backdropFilter = `blur(${blur}px)`;
+      } else {
+        selectedElement.style.backdropFilter = 'none';
+      }
+
+      closeModal('advancedModal');
+      triggerAutoSave();
+    }
+
+    function openLinkModal() {
+      document.getElementById('linkModal').classList.add('active');
+    }
+
+    function applyLink() {
+      const url = document.getElementById('linkUrlInput').value;
+      if (url) {
+        document.execCommand('createLink', false, url);
+        triggerAutoSave();
+      }
+      closeModal('linkModal');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    // PROMPT PERSONNALISÉ (SANS S'APPUYER SUR PROMPT() NAVIGATEUR)
+    function openCustomPrompt(title, defaultVal, callback) {
+      const modal = document.getElementById('linkModal');
+      modal.querySelector('h3').innerText = title;
+      const input = document.getElementById('linkUrlInput');
+      input.value = defaultVal || '';
+      modal.classList.add('active');
+
+      const btn = modal.querySelector('button[style*="accent"]');
+      const oldClick = btn.onclick;
+      btn.onclick = () => {
+        callback(input.value);
+        closeModal('linkModal');
+        btn.onclick = oldClick;
+      };
+    }
+
+    // --- GESTION DES ONGLETS DE LA SIDEBAR DROITE ---
+    function switchTab(tabId, eventArg = null) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      const activeButton = eventArg?.currentTarget || document.querySelector(`.tab-btn[onclick*="${tabId}"]`);
+      if (activeButton) {
+        activeButton.classList.add('active');
+      }
+
+      const targetTab = document.getElementById(`tab-${tabId}`);
+      if (targetTab) {
+        targetTab.classList.add('active');
+      }
+    }
+
+    function renderPagesList() {
+      const container = document.getElementById('pagesContainer');
+      const navLinks = document.getElementById('navbarLinks');
+      container.innerHTML = '';
+      navLinks.innerHTML = '';
+
+      Object.keys(siteData.pages).forEach(key => {
+        const page = siteData.pages[key];
+        const safeName = escapeAttribute(page.name);
+        const safeKey = escapeAttribute(key);
+
+        // Rendu dans la Navbar du site
+        if (page.inNavbar) {
+          const a = document.createElement('a');
+          a.innerText = page.name;
+          a.href = `#${key}`;
+          navLinks.appendChild(a);
+        }
+
+        // Rendu dans le panneau latéral
+        const item = document.createElement('div');
+        item.className = 'page-list-item';
+        item.innerHTML = `
+          <div class="page-list-header">
+            <input type="text" value="${safeName}" onchange="updatePageName('${safeKey}', this.value)">
+            <div>
+              <button class="tb-btn" onclick="switchPage('${safeKey}')">${key === siteData.currentPage ? '👁️' : 'Ouvrir'}</button>
+              ${key !== 'index' ? `<button class="tb-btn" style="color:#ef4444;" onclick="deletePage('${safeKey}')">✕</button>` : ''}
+            </div>
+          </div>
+          <div class="page-options">
+            <label><input type="checkbox" ${page.inNavbar ? 'checked' : ''} onchange="togglePageOption('${safeKey}', 'inNavbar', this.checked)"> In Navbar</label>
+            <label><input type="checkbox" ${page.inFooter ? 'checked' : ''} onchange="togglePageOption('${safeKey}', 'inFooter', this.checked)"> In Footer</label>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function addNewPage() {
+      openCustomPrompt("Nom de la page :", "Nouvelle Page", (name) => {
+        if (!name) return;
+        const normalizedName = name.trim();
+        const key = normalizedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'nouvelle-page';
+        if (!siteData.pages[key]) {
+          siteData.pages[key] = { name: normalizedName, inNavbar: true, inFooter: true, elements: [] };
+          switchPage(key);
+          triggerAutoSave();
+        }
+      });
+    }
+
+    function updatePageName(key, newName) {
+      siteData.pages[key].name = newName;
+      renderPagesList();
+      triggerAutoSave();
+    }
+
+    function togglePageOption(key, option, val) {
+      siteData.pages[key][option] = val;
+      renderPagesList();
+      triggerAutoSave();
+    }
+
+    function deletePage(key) {
+      if (key === 'index') return;
+      delete siteData.pages[key];
+      switchPage('index');
+      triggerAutoSave();
+    }
+
+    function switchPage(key) {
+      saveCurrentCanvasToMemory();
+      siteData.currentPage = key;
+      renderPagesList();
+      loadCanvasFromMemory(key);
+    }
+
+    function toggleSection(id, displayVal) {
+      document.getElementById(id).style.display = displayVal;
+      if (id === 'siteNavbar') siteData.navbarVisible = displayVal !== 'none';
+      if (id === 'siteFooter') siteData.footerVisible = displayVal !== 'none';
+      triggerAutoSave();
+    }
+
+    function saveCurrentCanvasToMemory() {
+      const elementsData = [];
+      siteCanvas.querySelectorAll('.canvas-element').forEach(el => {
+        const textValue = el.dataset.type === 'text'
+          ? el.querySelector('[contenteditable="true"]')?.textContent || ''
+          : el.dataset.type === 'button'
+            ? el.querySelector('button')?.textContent || ''
+            : '';
+
+        elementsData.push({
+          type: el.dataset.type,
+          style: el.style.cssText,
+          html: textValue || el.innerHTML,
+          text: textValue,
+          src: el.querySelector('img')?.src || null
+        });
+      });
+      if (siteData.pages[siteData.currentPage]) {
+        siteData.pages[siteData.currentPage].elements = elementsData;
+      }
+    }
+
+    function loadCanvasFromMemory(key) {
+      siteCanvas.innerHTML = '';
+      const page = siteData.pages[key];
+      if (page && page.elements) {
+        page.elements.forEach(data => {
+          const el = createCanvasElement(data.type, data);
+          siteCanvas.appendChild(el);
+        });
+      }
+    }
+
+    // --- PUBLICATION FRONTEND & CONVERSION HTML ---
+    // --- PUBLICATION FRONTEND & CONVERSION HTML ---
+    function publishSite() {
+      const sub = document.getElementById('subdomainInput').value.trim();
+      if (!sub) {
+        document.getElementById('publishStatus').innerText = '⚠️ Entrez un sous-domaine valide.';
+        return;
+      }
+
+      siteData.subdomain = sub;
+      saveCurrentCanvasToMemory();
+
+      const pageTitle = escapeHtml(siteData.pages['index']?.name || 'Mon Site FastCraft');
+      const navbarHtml = siteData.navbarVisible ? document.getElementById('siteNavbar').outerHTML.replace(/<\/script/gi, '<\\x3C/script') : '';
+      const footerHtml = siteData.footerVisible ? document.getElementById('siteFooter').outerHTML.replace(/<\/script/gi, '<\\x3C/script') : '';
+      const canvasHtml = siteCanvas.innerHTML.replace(/<\/script/gi, '<\\x3C/script');
+
+      const fullHTML = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>' + pageTitle + '</title><style>body { margin:0; font-family:\'Inter\', sans-serif; } nav a { margin-left: 1rem; text-decoration:none; color:inherit; }</style></head><body>' + navbarHtml + '<main style="padding:2rem;">' + canvasHtml + '</main>' + footerHtml + '</body></html>';
+
+      document.getElementById('publishStatus').innerText = '🚀 Publication en cours...';
+
+      fetch(API_URL + '/' + siteId + '/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subdomain: sub, html: fullHTML })
+      }).then(function () {
+        const targetUrl = 'https://' + sub + '.fastcraft.uk';
+        document.getElementById('publishStatus').innerHTML = '✅ Publié sur : <a href="' + targetUrl + '" target="_blank" style="color:var(--accent);">' + targetUrl + '</a>';
+      }).catch(function () {
+        document.getElementById('publishStatus').innerText = '✅ HTML généré (Prêt pour liaison Cloudflare Worker).';
+      });
+    }
+
+    // --- CHARGEMENT INITIAL ---
+    async function init() {
+      if (!siteId) return;
+      try {
+        const res = await fetch(API_URL + '/' + siteId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.content) {
+            siteData = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+            renderPagesList();
+            loadCanvasFromMemory(siteData.currentPage || 'index');
+            if (siteData.subdomain) document.getElementById('subdomainInput').value = siteData.subdomain;
+          }
+        }
+      } catch (e) {
+        console.error('Erreur chargement:', e);
+      }
+      renderPagesList();
+    }
+
+    init();
+  </script>
+</body>
+
+</html>

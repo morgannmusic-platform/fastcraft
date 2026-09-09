@@ -1,7 +1,14 @@
 name = "fastcraft-api"
 main = "src/index.js"
-compatibility_date = "2024-03-01"
+compatibility_date = "2026-01-01"
 
+# Routes pour intercepter l'API et TOUS les sous-domaines
+routes = [
+  { pattern = "api.fastcraft.uk/*", zone_name = "fastcraft.uk" },
+  { pattern = "*.fastcraft.uk/*", zone_name = "fastcraft.uk" }
+]
+
+# Binding à la base de données D1
 [[d1_databases]]
 binding = "DB"
 database_name = "fastcraft-db"

@@ -211,7 +211,7 @@
                 sites.forEach(site => {
                     const card = document.createElement('div');
                     card.className = 'site-card';
-                    card.onclick = () => window.location.href = `/site?id=${site.id}`;
+                    card.onclick = () => window.location.href = `/espace/site.html?id=${site.id}`;
 
                     card.innerHTML = `
             <div>
@@ -252,7 +252,7 @@
 
                 if (data.id) {
                     // Redirection directe vers /site?id=...
-                    window.location.href = `/site?id=${data.id}`;
+                    window.location.href = `/espace/site.html?id=${data.id}`;
                 }
             } catch (err) {
                 console.error("Erreur lors de la création du site :", err);
