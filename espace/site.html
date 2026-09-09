@@ -279,11 +279,45 @@
       position: relative;
       border: 1px solid transparent;
       min-height: 20px;
-      transition: border-color 0.1s;
+      transition: border-color 0.1s, box-shadow 0.1s;
+      cursor: grab;
+      user-select: none;
     }
 
     .canvas-element.selected {
       outline: 2px solid var(--accent) !important;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+    }
+
+    .canvas-element.dragging {
+      cursor: grabbing;
+      z-index: 50;
+    }
+
+    .alignment-guides {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: none;
+      z-index: 25;
+    }
+
+    .alignment-guides .guide {
+      position: absolute;
+      background: rgba(59, 130, 246, 0.9);
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.5);
+    }
+
+    .alignment-guides .guide.vertical {
+      top: 0;
+      bottom: 0;
+      width: 2px;
+    }
+
+    .alignment-guides .guide.horizontal {
+      left: 0;
+      right: 0;
+      height: 2px;
     }
 
     /* CONTEXT MENU */
@@ -543,7 +577,12 @@
         </header>
 
         <!-- CONTENU DYNAMIQUE -->
-        <main class="site-canvas" id="siteCanvas"></main>
+        <main class="site-canvas" id="siteCanvas">
+          <div class="alignment-guides" id="alignmentGuides">
+            <div class="guide vertical" id="guideVertical"></div>
+            <div class="guide horizontal" id="guideHorizontal"></div>
+          </div>
+        </main>
 
         <!-- PIED DE PAGE DU SITE -->
         <footer class="site-footer" id="siteFooter">
@@ -562,6 +601,7 @@
       <button class="tab-btn active" onclick="switchTab('pages', event)">Pages</button>
       <button class="tab-btn" onclick="switchTab('structure', event)">Structure</button>
       <button class="tab-btn" onclick="switchTab('domain', event)">Domaine</button>
+      <button class="tab-btn" onclick="switchTab('settings', event)">Paramètres</button>
     </div>
 
     <!-- ONGLET PAGES -->
@@ -601,6 +641,69 @@
       <button class="tb-btn" style="width:100%; justify-content:center; padding:0.6rem; background:var(--accent);"
         onclick="publishSite()">🚀 Publier le site</button>
       <div id="publishStatus" style="margin-top:1rem; font-size:0.8rem; color:#aaa;"></div>
+    </div>
+
+    <!-- ONGLET PARAMÈTRES SEO ET MÉTADONNÉES -->
+    <div class="tab-content" id="tab-settings">
+      <div class="form-group">
+        <label>Titre du site</label>
+        <input type="text" id="metaTitle" placeholder="Mon super site" onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="metaDescription" rows="3"
+          style="width:100%; background:#1c1c1c; border:1px solid #2a2a2a; color:#fff; padding:0.5rem; border-radius:4px; resize:vertical;"
+          onchange="saveMetaSettings()"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Favicon URL</label>
+        <input type="url" id="metaFavicon" placeholder="https://.../favicon.ico" onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Apple touch icon URL</label>
+        <input type="url" id="metaAppleTouch" placeholder="https://.../apple-touch-icon.png"
+          onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Image Open Graph</label>
+        <input type="url" id="metaOgImage" placeholder="https://.../og-image.jpg" onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Titre Open Graph</label>
+        <input type="text" id="metaOgTitle" placeholder="Mon site" onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Description Open Graph</label>
+        <textarea id="metaOgDescription" rows="2"
+          style="width:100%; background:#1c1c1c; border:1px solid #2a2a2a; color:#fff; padding:0.5rem; border-radius:4px; resize:vertical;"
+          onchange="saveMetaSettings()"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Twitter Card</label>
+        <select id="metaTwitterCard" onchange="saveMetaSettings()">
+          <option value="summary">summary</option>
+          <option value="summary_large_image">summary_large_image</option>
+          <option value="app">app</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Twitter @site</label>
+        <input type="text" id="metaTwitterSite" placeholder="@fastcraft" onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Titre Twitter</label>
+        <input type="text" id="metaTwitterTitle" placeholder="Mon site" onchange="saveMetaSettings()">
+      </div>
+      <div class="form-group">
+        <label>Description Twitter</label>
+        <textarea id="metaTwitterDescription" rows="2"
+          style="width:100%; background:#1c1c1c; border:1px solid #2a2a2a; color:#fff; padding:0.5rem; border-radius:4px; resize:vertical;"
+          onchange="saveMetaSettings()"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Canonical URL</label>
+        <input type="url" id="metaCanonical" placeholder="https://monsite.fastcraft.uk" onchange="saveMetaSettings()">
+      </div>
     </div>
   </aside>
 
@@ -712,7 +815,25 @@
         },
         navbarVisible: true,
         footerVisible: true,
-        subdomain: ''
+        subdomain: '',
+        background: {
+          color: '#ffffff',
+          image: ''
+        },
+        meta: {
+          title: 'Mon site',
+          description: '',
+          favicon: '',
+          appleTouchIcon: '',
+          ogImage: '',
+          ogTitle: '',
+          ogDescription: '',
+          twitterCard: 'summary_large_image',
+          twitterSite: '',
+          twitterTitle: '',
+          twitterDescription: '',
+          canonical: ''
+        }
       };
     }
 
@@ -740,12 +861,33 @@
         normalizedPages.index = { ...base.pages.index };
       }
 
+      const normalizedBackground = data.background && typeof data.background === 'object' ? data.background : {};
+      const normalizedMeta = data.meta && typeof data.meta === 'object' ? data.meta : {};
+
       return {
         currentPage: data.currentPage && typeof data.currentPage === 'string' ? data.currentPage : 'index',
         pages: normalizedPages,
         navbarVisible: data.navbarVisible !== undefined ? Boolean(data.navbarVisible) : true,
         footerVisible: data.footerVisible !== undefined ? Boolean(data.footerVisible) : true,
-        subdomain: typeof data.subdomain === 'string' ? data.subdomain : ''
+        subdomain: typeof data.subdomain === 'string' ? data.subdomain : '',
+        background: {
+          color: typeof normalizedBackground.color === 'string' ? normalizedBackground.color : '#ffffff',
+          image: typeof normalizedBackground.image === 'string' ? normalizedBackground.image : ''
+        },
+        meta: {
+          title: typeof normalizedMeta.title === 'string' ? normalizedMeta.title : base.meta.title,
+          description: typeof normalizedMeta.description === 'string' ? normalizedMeta.description : '',
+          favicon: typeof normalizedMeta.favicon === 'string' ? normalizedMeta.favicon : '',
+          appleTouchIcon: typeof normalizedMeta.appleTouchIcon === 'string' ? normalizedMeta.appleTouchIcon : '',
+          ogImage: typeof normalizedMeta.ogImage === 'string' ? normalizedMeta.ogImage : '',
+          ogTitle: typeof normalizedMeta.ogTitle === 'string' ? normalizedMeta.ogTitle : '',
+          ogDescription: typeof normalizedMeta.ogDescription === 'string' ? normalizedMeta.ogDescription : '',
+          twitterCard: typeof normalizedMeta.twitterCard === 'string' ? normalizedMeta.twitterCard : 'summary_large_image',
+          twitterSite: typeof normalizedMeta.twitterSite === 'string' ? normalizedMeta.twitterSite : '',
+          twitterTitle: typeof normalizedMeta.twitterTitle === 'string' ? normalizedMeta.twitterTitle : '',
+          twitterDescription: typeof normalizedMeta.twitterDescription === 'string' ? normalizedMeta.twitterDescription : '',
+          canonical: typeof normalizedMeta.canonical === 'string' ? normalizedMeta.canonical : ''
+        }
       };
     }
 
@@ -898,17 +1040,81 @@
       return el;
     }
 
-    // --- SÉLECTION D'ÉLÉMENT & BARRE FLOTTANTE ---
-    function selectElement(el) {
-      if (selectedElement) selectedElement.classList.remove('selected');
-      selectedElement = el;
-      selectedElement.classList.add('selected');
+    let dragState = null;
+    let guideState = null;
 
-      const rect = el.getBoundingClientRect();
-      const containerRect = document.getElementById('canvasContainer').getBoundingClientRect();
+    function renderFloatingToolbarPosition() {
+      if (!selectedElement) return;
+      const canvasRect = siteCanvas.getBoundingClientRect();
+      const rect = selectedElement.getBoundingClientRect();
+      const toolbarHeight = 54;
+      const desiredTop = rect.top - canvasRect.top - toolbarHeight - 10;
+      const maxTop = 12;
+      const minTop = 12;
+      const top = Math.min(Math.max(desiredTop, minTop), Math.max(12, siteCanvas.clientHeight - toolbarHeight - 12));
+      floatingToolbar.style.top = top + 'px';
+      floatingToolbar.style.left = '50%';
+      floatingToolbar.style.transform = 'translateX(-50%)';
+    }
 
-      floatingToolbar.style.top = (el.offsetTop - 50) + 'px';
-      floatingToolbar.classList.add('active');
+    function hideAlignmentGuides() {
+      const guides = document.getElementById('alignmentGuides');
+      if (guides) guides.style.display = 'none';
+      guideState = null;
+    }
+
+    function showAlignmentGuides(x, y) {
+      const guides = document.getElementById('alignmentGuides');
+      const v = document.getElementById('guideVertical');
+      const h = document.getElementById('guideHorizontal');
+      if (!guides || !v || !h) return;
+      guides.style.display = 'block';
+      v.style.left = x + 'px';
+      h.style.top = y + 'px';
+      guideState = { x, y };
+    }
+
+    function snapElementPosition(el, x, y) {
+      const candidates = [];
+      siteCanvas.querySelectorAll('.canvas-element').forEach(function (other) {
+        if (other === el) return;
+        const otherRect = other.getBoundingClientRect();
+        const otherX = parseFloat(other.style.left || '0');
+        const otherY = parseFloat(other.style.top || '0');
+        const otherW = otherRect.width || 100;
+        const otherH = otherRect.height || 40;
+        candidates.push({ axis: 'x', value: otherX, diff: Math.abs(x - otherX) });
+        candidates.push({ axis: 'x', value: otherX + otherW / 2, diff: Math.abs(x - (otherX + otherW / 2)) });
+        candidates.push({ axis: 'x', value: otherX + otherW, diff: Math.abs(x - (otherX + otherW)) });
+        candidates.push({ axis: 'y', value: otherY, diff: Math.abs(y - otherY) });
+        candidates.push({ axis: 'y', value: otherY + otherH / 2, diff: Math.abs(y - (otherY + otherH / 2)) });
+        candidates.push({ axis: 'y', value: otherY + otherH, diff: Math.abs(y - (otherY + otherH)) });
+      });
+
+      let snappedX = x;
+      let snappedY = y;
+      let closestX = null;
+      let closestY = null;
+
+      candidates.forEach(function (candidate) {
+        if (candidate.axis === 'x' && (closestX === null || candidate.diff < closestX.diff)) {
+          closestX = candidate;
+        }
+        if (candidate.axis === 'y' && (closestY === null || candidate.diff < closestY.diff)) {
+          closestY = candidate;
+        }
+      });
+
+      if (closestX && closestX.diff < 12) {
+        snappedX = closestX.value;
+        showAlignmentGuides(snappedX, guideState && guideState.y ? guideState.y : y);
+      }
+      if (closestY && closestY.diff < 12) {
+        snappedY = closestY.value;
+        showAlignmentGuides(guideState && guideState.x ? guideState.x : x, snappedY);
+      }
+
+      return { x: snappedX, y: snappedY };
     }
 
     document.addEventListener('click', function (e) {
@@ -916,7 +1122,52 @@
         if (selectedElement) selectedElement.classList.remove('selected');
         selectedElement = null;
         floatingToolbar.classList.remove('active');
+        hideAlignmentGuides();
       }
+    });
+
+    siteCanvas.addEventListener('click', function (e) {
+      if (e.target === siteCanvas || e.target === siteCanvas.firstElementChild) {
+        openColorModal('pageBg');
+      }
+    });
+
+    siteCanvas.addEventListener('pointerdown', function (e) {
+      const element = e.target.closest('.canvas-element');
+      if (!element) return;
+      if (e.target.closest('input, button, textarea, [contenteditable="true"]')) return;
+
+      e.preventDefault();
+      selectElement(element);
+      const canvasRect = siteCanvas.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
+      dragState = {
+        element: element,
+        offsetX: e.clientX - rect.left,
+        offsetY: e.clientY - rect.top,
+        startX: rect.left - canvasRect.left,
+        startY: rect.top - canvasRect.top
+      };
+      element.classList.add('dragging');
+    });
+
+    document.addEventListener('pointermove', function (e) {
+      if (!dragState) return;
+      const canvasRect = siteCanvas.getBoundingClientRect();
+      let x = e.clientX - canvasRect.left - dragState.offsetX;
+      let y = e.clientY - canvasRect.top - dragState.offsetY;
+      const snapped = snapElementPosition(dragState.element, x, y);
+      dragState.element.style.left = snapped.x + 'px';
+      dragState.element.style.top = snapped.y + 'px';
+      renderFloatingToolbarPosition();
+    });
+
+    document.addEventListener('pointerup', function () {
+      if (!dragState) return;
+      dragState.element.classList.remove('dragging');
+      dragState = null;
+      hideAlignmentGuides();
+      triggerAutoSave();
     });
 
     // --- APPLICATION DE STYLES VIA LA TOOLBAR ---
@@ -1014,7 +1265,12 @@
     // --- MODALES ET COULEURS ---
     function openColorModal(mode) {
       targetColorMode = mode;
-      document.getElementById('colorModalTitle').innerText = mode === 'text' ? 'Couleur & Dégradé du Texte' : 'Couleur & Dégradé du Fond';
+      if (mode === 'pageBg') {
+        document.getElementById('colorModalTitle').innerText = 'Fond de la page';
+        document.getElementById('solidColorInput').value = siteData.background && siteData.background.color ? siteData.background.color : '#ffffff';
+      } else {
+        document.getElementById('colorModalTitle').innerText = mode === 'text' ? 'Couleur & Dégradé du Texte' : 'Couleur & Dégradé du Fond';
+      }
       document.getElementById('colorModal').classList.add('active');
     }
 
@@ -1024,8 +1280,21 @@
     }
 
     function applyColorStyle() {
-      if (!selectedElement) return;
       const type = document.getElementById('colorTypeSelect').value;
+
+      if (targetColorMode === 'pageBg') {
+        const color = document.getElementById('solidColorInput').value;
+        siteData.background = siteData.background || { color: '#ffffff', image: '' };
+        siteData.background.color = color;
+        siteCanvas.style.backgroundColor = color;
+        siteCanvas.style.backgroundImage = 'none';
+        document.getElementById('pageFrame').style.backgroundColor = color;
+        closeModal('colorModal');
+        triggerAutoSave();
+        return;
+      }
+
+      if (!selectedElement) return;
 
       if (type === 'solid') {
         const color = document.getElementById('solidColorInput').value;
@@ -1129,6 +1398,40 @@
       if (targetTab) {
         targetTab.classList.add('active');
       }
+    }
+
+    function renderMetaForm() {
+      const meta = siteData.meta || {};
+      document.getElementById('metaTitle').value = meta.title || '';
+      document.getElementById('metaDescription').value = meta.description || '';
+      document.getElementById('metaFavicon').value = meta.favicon || '';
+      document.getElementById('metaAppleTouch').value = meta.appleTouchIcon || '';
+      document.getElementById('metaOgImage').value = meta.ogImage || '';
+      document.getElementById('metaOgTitle').value = meta.ogTitle || '';
+      document.getElementById('metaOgDescription').value = meta.ogDescription || '';
+      document.getElementById('metaTwitterCard').value = meta.twitterCard || 'summary_large_image';
+      document.getElementById('metaTwitterSite').value = meta.twitterSite || '';
+      document.getElementById('metaTwitterTitle').value = meta.twitterTitle || '';
+      document.getElementById('metaTwitterDescription').value = meta.twitterDescription || '';
+      document.getElementById('metaCanonical').value = meta.canonical || '';
+    }
+
+    function saveMetaSettings() {
+      siteData.meta = {
+        title: document.getElementById('metaTitle').value.trim() || 'Mon site',
+        description: document.getElementById('metaDescription').value.trim(),
+        favicon: document.getElementById('metaFavicon').value.trim(),
+        appleTouchIcon: document.getElementById('metaAppleTouch').value.trim(),
+        ogImage: document.getElementById('metaOgImage').value.trim(),
+        ogTitle: document.getElementById('metaOgTitle').value.trim(),
+        ogDescription: document.getElementById('metaOgDescription').value.trim(),
+        twitterCard: document.getElementById('metaTwitterCard').value,
+        twitterSite: document.getElementById('metaTwitterSite').value.trim(),
+        twitterTitle: document.getElementById('metaTwitterTitle').value.trim(),
+        twitterDescription: document.getElementById('metaTwitterDescription').value.trim(),
+        canonical: document.getElementById('metaCanonical').value.trim()
+      };
+      triggerAutoSave();
     }
 
     function renderPagesList() {
@@ -1265,8 +1568,21 @@
       const navbarHtml = siteData.navbarVisible ? document.getElementById('siteNavbar').outerHTML.replace(/<\/script/gi, '<\\x3C/script') : '';
       const footerHtml = siteData.footerVisible ? document.getElementById('siteFooter').outerHTML.replace(/<\/script/gi, '<\\x3C/script') : '';
       const canvasHtml = siteCanvas.innerHTML.replace(/<\/script/gi, '<\\x3C/script');
+      const meta = siteData.meta || {};
+      const title = (meta.title || pageTitle || 'Mon Site FastCraft').replace(/<[^>]+>/g, '');
+      const description = escapeHtml(meta.description || '');
+      const favicon = meta.favicon ? '<link rel="icon" type="image/x-icon" href="' + escapeAttribute(meta.favicon) + '">' : '';
+      const appleIcon = meta.appleTouchIcon ? '<link rel="apple-touch-icon" href="' + escapeAttribute(meta.appleTouchIcon) + '">' : '';
+      const ogImage = meta.ogImage ? '<meta property="og:image" content="' + escapeAttribute(meta.ogImage) + '">' : '';
+      const ogTitle = meta.ogTitle || title;
+      const ogDescription = meta.ogDescription || description;
+      const twitterCard = meta.twitterCard || 'summary_large_image';
+      const twitterSite = meta.twitterSite ? '<meta name="twitter:site" content="' + escapeAttribute(meta.twitterSite) + '">' : '';
+      const twitterTitle = meta.twitterTitle || title;
+      const twitterDescription = meta.twitterDescription || description;
+      const canonical = meta.canonical ? '<link rel="canonical" href="' + escapeAttribute(meta.canonical) + '">' : '';
 
-      const fullHTML = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>' + pageTitle + '</title><style>body { margin:0; font-family:\'Inter\', sans-serif; } nav a { margin-left: 1rem; text-decoration:none; color:inherit; }</style></head><body>' + navbarHtml + '<main style="padding:2rem;">' + canvasHtml + '</main>' + footerHtml + '</body></html>';
+      const fullHTML = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>' + escapeHtml(title) + '</title><meta name="description" content="' + description + '">' + favicon + appleIcon + canonical + '<meta property="og:title" content="' + escapeAttribute(ogTitle) + '"><meta property="og:description" content="' + escapeAttribute(ogDescription) + '">' + ogImage + '<meta name="twitter:card" content="' + escapeAttribute(twitterCard) + '">' + twitterSite + '<meta name="twitter:title" content="' + escapeAttribute(twitterTitle) + '"><meta name="twitter:description" content="' + escapeAttribute(twitterDescription) + '"><style>body { margin:0; font-family:\'Inter\', sans-serif; } nav a { margin-left: 1rem; text-decoration:none; color:inherit; }</style></head><body>' + navbarHtml + '<main style="padding:2rem; background:' + (siteData.background && siteData.background.color ? siteData.background.color : '#ffffff') + ';">' + canvasHtml + '</main>' + footerHtml + '</body></html>';
 
       document.getElementById('publishStatus').innerText = '🚀 Publication en cours...';
 
@@ -1321,11 +1637,16 @@
       }
 
       renderPagesList();
+      renderMetaForm();
       if (siteData.currentPage) {
         loadCanvasFromMemory(siteData.currentPage);
       }
       if (siteData.subdomain) {
         document.getElementById('subdomainInput').value = siteData.subdomain;
+      }
+      if (siteData.background && siteData.background.color) {
+        siteCanvas.style.backgroundColor = siteData.background.color;
+        document.getElementById('pageFrame').style.backgroundColor = siteData.background.color;
       }
     }
 
