@@ -18,7 +18,7 @@ async function ensureSitesTable(env) {
 
     const requiredColumns = [
         { name: 'content', sql: 'TEXT' },
-        { name: 'subdomain', sql: 'TEXT UNIQUE' },
+        { name: 'subdomain', sql: 'TEXT' },
         { name: 'published_html', sql: 'TEXT' }
     ];
 
@@ -26,6 +26,13 @@ async function ensureSitesTable(env) {
         if (!columns.includes(column.name)) {
             await env.DB.prepare(`ALTER TABLE sites ADD COLUMN ${column.name} ${column.sql}`).run();
         }
+    }
+
+    try {
+        await env.DB.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_sites_subdomain ON sites(subdomain)').run();
+    } catch (error) {
+        // L'ancienne base peut contenir des doublons temporaires ; on garde la validation applicative.
+        console.warn('Index unique subdomain non créé:', error.message);
     }
 }
 
@@ -35,7 +42,7 @@ export default {
         const host = request.headers.get('Host') || '';
 
         // Liste des sous-domaines réservés pour ton infrastructure
-        const RESERVED_SUBDOMAINS = ['api', 'beta', 'support', 'www', 'app', 'mail', 'admin'];
+        const RESERVED_SUBDOMAINS = ['support', 'www', 'app', 'mail', 'admin'];
 
         // En-têtes CORS pour autoriser l'accès depuis l'éditeur frontend
         const corsHeaders = {
@@ -59,6 +66,27 @@ export default {
             }
 
             await ensureSitesTable(env);
+
+            const hostname = (request.headers.get('Host') || '').split(':')[0].toLowerCase();
+            const firstLabel = hostname.split('.')[0] || '';
+
+            if (RESERVED_SUBDOMAINS.includes(firstLabel) && hostname.endsWith('.fastcraft.uk')) {
+                const site = await env.DB.prepare(
+                    "SELECT published_html FROM sites WHERE subdomain = ?"
+                ).bind(firstLabel).first();
+
+                if (site && site.published_html) {
+                    return new Response(site.published_html, {
+                        status: 200,
+                        headers: { 'Content-Type': 'text/html; charset=utf-8' }
+                    });
+                }
+
+                return new Response(JSON.stringify({ error: 'Sous-domaine réservé : accès refusé.' }), {
+                    status: 403,
+                    headers: corsHeaders
+                });
+            }
 
             // --- 1. GESTION DES REQUÊTES API ---
             if (url.pathname.startsWith('/api')) {
