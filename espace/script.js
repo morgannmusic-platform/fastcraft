@@ -1,417 +1,546 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // --- CONFIGURATION & ÉTATS ---
-    const API_URL = 'http://api.fastcraft.uk/api/sites';
-    const urlParams = new URLSearchParams(window.location.search);
-    const siteId = urlParams.get('id');
+﻿document.addEventListener('DOMContentLoaded', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const currentSiteId = urlParams.get('id') || localStorage.getItem('fastcraft-last-site-id') || `site-${(crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36))}`;
+  const siteIdDisplay = document.getElementById('siteIdDisplay');
+  const saveStatus = document.getElementById('saveStatus');
+  const siteCanvas = document.getElementById('siteCanvas');
+  const contextMenu = document.getElementById('contextMenu');
+  const publishStatus = document.getElementById('publishStatus');
+  const publishButton = document.getElementById('btn-publish-site');
+  const metaTitle = document.getElementById('metaTitle');
+  const subdomainInput = document.getElementById('subdomainInput');
 
-    if (siteId) {
-        const el = document.getElementById('siteIdDisplay');
-        if (el) el.innerText = siteId.substring(0, 8) + '...';
+  const API_BASE = (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1'))
+    ? 'http://127.0.0.1:8787'
+    : 'https://api.fastcraft.uk';
+
+  const SITE_API_URL = `${API_BASE}/api/sites`;
+  let activeElement = null;
+  let isDragging = false;
+  let dragOffset = { x: 0, y: 0 };
+  let saveTimer = null;
+  let clipboard = null;
+
+  if (siteIdDisplay) siteIdDisplay.textContent = currentSiteId;
+  localStorage.setItem('fastcraft-last-site-id', currentSiteId);
+
+  function setSaveStatus(label) {
+    if (saveStatus) saveStatus.textContent = label;
+  }
+
+  function requestSave() {
+    clearTimeout(saveTimer);
+    setSaveStatus('💾 Enregistrement...');
+    saveTimer = setTimeout(() => saveCurrentSite(), 600);
+  }
+
+  function normalizeContent(raw) {
+    if (!raw) return '';
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === 'string') return parsed;
+      } catch (err) {
+        return raw;
+      }
+      return raw;
+    }
+    return String(raw);
+  }
+
+  function serializeCanvas() {
+    if (!siteCanvas) return '';
+    return Array.from(siteCanvas.querySelectorAll('.canvas-element')).map(node => node.outerHTML).join('');
+  }
+
+  function saveLocalDraft(data) {
+    localStorage.setItem(`fastcraft-site-${currentSiteId}`, JSON.stringify(data));
+  }
+
+  function readLocalDraft() {
+    try {
+      return JSON.parse(localStorage.getItem(`fastcraft-site-${currentSiteId}`) || 'null');
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function restoreCanvas(content) {
+    if (!siteCanvas) return;
+    const safe = normalizeContent(content);
+    siteCanvas.querySelectorAll('.canvas-element').forEach(node => node.remove());
+    if (!safe) {
+      createElementOnCanvas('text', 'heading', 80, 80, '<h2>Bienvenue</h2>');
+      return;
     }
 
-    let siteData = {
-        pages: {
-            index: { name: 'Accueil', content: [] }
-        },
-        currentPage: 'index',
-        subdomain: ''
-    };
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = safe;
+    Array.from(wrapper.children).forEach(node => {
+      if (node.classList && node.classList.contains('canvas-element')) {
+        siteCanvas.appendChild(node);
+        attachElementEvents(node);
+      }
+    });
 
-    let selectedElement = null;
-    let isDragging = false;
-    let dragOffset = { x: 0, y: 0 };
+    if (!siteCanvas.querySelector('.canvas-element')) {
+      createElementOnCanvas('text', 'heading', 80, 80, '<h2>Bienvenue</h2>');
+    }
+  }
 
-    // --- NAVIGATION ENTRE ONGLET SIDEBAR ---
+  async function ensureSiteExists() {
+    try {
+      const response = await fetch(`${SITE_API_URL}/${currentSiteId}`);
+      if (response.ok) return true;
+    } catch (err) {
+      console.warn('Site absent de l’API.', err);
+    }
+
+    try {
+      const payload = {
+        id: currentSiteId,
+        name: (metaTitle && metaTitle.value.trim()) || 'Mon site',
+        content: serializeCanvas(),
+        subdomain: subdomainInput ? subdomainInput.value.trim() : ''
+      };
+      const response = await fetch(SITE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (response.ok) {
+        return true;
+      }
+    } catch (err) {
+      console.warn('Création API impossible, fallback local.', err);
+    }
+
+    saveLocalDraft({
+      id: currentSiteId,
+      name: (metaTitle && metaTitle.value.trim()) || 'Mon site',
+      content: serializeCanvas(),
+      subdomain: subdomainInput ? subdomainInput.value.trim() : ''
+    });
+    return false;
+  }
+
+  async function saveCurrentSite() {
+    try {
+      await ensureSiteExists();
+      const payload = {
+        id: currentSiteId,
+        name: (metaTitle && metaTitle.value.trim()) || 'Mon site',
+        content: serializeCanvas(),
+        subdomain: subdomainInput ? subdomainInput.value.trim() : ''
+      };
+
+      const response = await fetch(`${SITE_API_URL}/${currentSiteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur sauvegarde ${response.status}`);
+      }
+
+      const data = await response.json();
+      saveLocalDraft(data || payload);
+      setSaveStatus('☁️ Enregistré');
+      return true;
+    } catch (err) {
+      console.warn('Sauvegarde locale seulement.', err);
+      saveLocalDraft({
+        id: currentSiteId,
+        name: (metaTitle && metaTitle.value.trim()) || 'Mon site',
+        content: serializeCanvas(),
+        subdomain: subdomainInput ? subdomainInput.value.trim() : ''
+      });
+      setSaveStatus('💾 Enregistré localement');
+      return false;
+    }
+  }
+
+  function buildPublishedHtml() {
+    const navbar = document.getElementById('siteNavbar') ? document.getElementById('siteNavbar').outerHTML : '<header><div>MonSite</div></header>';
+    const footer = document.getElementById('siteFooter') ? document.getElementById('siteFooter').outerHTML : '<footer><p>© 2026 Tous droits réservés</p></footer>';
+    const previewCanvas = siteCanvas.cloneNode(true);
+    previewCanvas.querySelectorAll('.alignment-guides').forEach(node => node.remove());
+    const title = (metaTitle && metaTitle.value.trim()) || 'Mon site';
+
+    return `<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${title}</title>
+    <style>
+      body { margin: 0; font-family: Arial, sans-serif; background: #f5f5f5; }
+      .site-canvas { position: relative; min-height: 520px; background: #fff; }
+      .canvas-element { position: absolute; }
+      .canvas-element h2, .canvas-element h3, .canvas-element p { margin: 0; }
+      .element-button { display: flex; align-items: center; justify-content: center; }
+    </style>
+  </head>
+  <body>
+    <div style="max-width: 1200px; margin: 0 auto; padding: 24px;">
+      ${navbar}
+      <main class="site-canvas">${previewCanvas.innerHTML}</main>
+      ${footer}
+    </div>
+  </body>
+</html>`;
+  }
+
+  async function publishCurrentSite() {
+    if (!publishStatus) return;
+    try {
+      await ensureSiteExists();
+      const subdomain = (subdomainInput && subdomainInput.value.trim()) || `site-${currentSiteId.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase()}`;
+      const html = buildPublishedHtml();
+      const response = await fetch(`${SITE_API_URL}/${currentSiteId}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subdomain, html })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Publication impossible ${response.status}`);
+      }
+
+      const data = await response.json();
+      publishStatus.textContent = `✅ Site publié : ${data.subdomain || subdomain}.fastcraft.uk`;
+      setSaveStatus('🚀 Publié');
+      return true;
+    } catch (err) {
+      console.error(err);
+      publishStatus.textContent = '⚠️ Publication impossible, sauvegarde locale conservée.';
+      return false;
+    }
+  }
+
+  function attachElementEvents(node) {
+    node.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) return;
+      selectElement(node);
+      isDragging = true;
+      const rect = node.getBoundingClientRect();
+      dragOffset.x = event.clientX - rect.left;
+      dragOffset.y = event.clientY - rect.top;
+      node.classList.add('dragging');
+    });
+
+    node.addEventListener('input', () => requestSave());
+  }
+
+  function selectElement(node) {
+    document.querySelectorAll('.canvas-element').forEach(el => el.classList.remove('selected'));
+    activeElement = node;
+    if (!node) return;
+    node.classList.add('selected');
+    updateEditPanel();
+  }
+
+  function updateEditPanel() {
+    const emptyMsg = document.querySelector('.empty-selection-msg');
+    const textSec = document.getElementById('edit-text-section');
+    const shapeSec = document.getElementById('edit-shape-section');
+    const mediaSec = document.getElementById('edit-media-section');
+
+    if (textSec) textSec.classList.add('hidden');
+    if (shapeSec) shapeSec.classList.add('hidden');
+    if (mediaSec) mediaSec.classList.add('hidden');
+
+    if (!activeElement) {
+      if (emptyMsg) emptyMsg.style.display = 'block';
+      return;
+    }
+
+    if (emptyMsg) emptyMsg.style.display = 'none';
+
+    if (activeElement.classList.contains('element-text') && textSec) {
+      textSec.classList.remove('hidden');
+    } else if ((activeElement.classList.contains('element-shape') || activeElement.classList.contains('element-button')) && shapeSec) {
+      shapeSec.classList.remove('hidden');
+    }
+  }
+
+  function createElementOnCanvas(type, preset, x, y, customHtml = null) {
+    const el = document.createElement('div');
+    el.classList.add('canvas-element');
+    el.style.position = 'absolute';
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.zIndex = '10';
+
+    if (type === 'text') {
+      el.classList.add('element-text');
+      if (preset === 'heading') {
+        el.innerHTML = customHtml || '<h2>Nouveau titre</h2>';
+      } else if (preset === 'subheading') {
+        el.innerHTML = customHtml || '<h3>Sous-titre</h3>';
+      } else {
+        el.innerHTML = customHtml || '<p>Texte de paragraphe à modifier...</p>';
+      }
+    } else if (type === 'square') {
+      el.classList.add('element-shape');
+      el.style.width = '120px';
+      el.style.height = '120px';
+      el.style.backgroundColor = '#6366f1';
+      el.style.borderRadius = '0px';
+    } else if (type === 'button') {
+      el.classList.add('element-button');
+      el.style.width = '140px';
+      el.style.height = '45px';
+      el.style.backgroundColor = '#10b981';
+      el.style.color = '#fff';
+      el.style.borderRadius = '6px';
+      el.style.display = 'flex';
+      el.style.alignItems = 'center';
+      el.style.justifyContent = 'center';
+      el.innerHTML = '<span>Cliquez ici</span>';
+    }
+
+    siteCanvas.appendChild(el);
+    attachElementEvents(el);
+    selectElement(el);
+    requestSave();
+    return el;
+  }
+
+  function bindSidebarTabs() {
     const navTabs = document.querySelectorAll('.nav-tab');
     const drawerPanels = document.querySelectorAll('.drawer-panel');
-
     navTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const panelId = tab.getAttribute('data-panel');
-            navTabs.forEach(t => t.classList.remove('active'));
-            drawerPanels.forEach(p => p.classList.remove('active'));
-
-            tab.classList.add('active');
-            const targetPanel = document.getElementById(panelId);
-            if (targetPanel) targetPanel.classList.add('active');
-        });
+      tab.addEventListener('click', () => {
+        navTabs.forEach(el => el.classList.remove('active'));
+        drawerPanels.forEach(panel => panel.classList.remove('active'));
+        tab.classList.add('active');
+        const panel = document.getElementById(tab.dataset.panel);
+        if (panel) panel.classList.add('active');
+      });
     });
 
-    // --- NAVIGATION PANNEAU DROIT (TABS) ---
-    const tabBtns = document.querySelectorAll('.tab-btn');
-    const tabContents = document.querySelectorAll('.tab-content');
-
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tabId = 'tab-' + btn.getAttribute('data-tab');
-            tabBtns.forEach(b => b.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active'));
-
-            btn.classList.add('active');
-            const targetContent = document.getElementById(tabId);
-            if (targetContent) targetContent.classList.add('active');
-        });
+    const rightTabButtons = document.querySelectorAll('.sidebar-right .tab-btn');
+    const tabContents = document.querySelectorAll('.sidebar-right .tab-content');
+    rightTabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        rightTabButtons.forEach(el => el.classList.remove('active'));
+        tabContents.forEach(el => el.classList.remove('active'));
+        button.classList.add('active');
+        const target = document.getElementById(`tab-${button.dataset.tab}`);
+        if (target) target.classList.add('active');
+      });
     });
+  }
 
-    // --- SÉLECTION D'ÉLÉMENT & PANNEAUX D'ÉDITION ---
-    const editContainer = document.getElementById('edit-controls-container');
-    const editTextSection = document.getElementById('edit-text-section');
-    const editShapeSection = document.getElementById('edit-shape-section');
-    const editMediaSection = document.getElementById('edit-media-section');
-    const emptyMsg = editContainer ? editContainer.querySelector('.empty-selection-msg') : null;
-
-    function deselectAll() {
-        document.querySelectorAll('.canvas-item').forEach(el => el.classList.remove('selected'));
-        selectedElement = null;
-        showEditControls(null);
-    }
-
-    function selectElement(el) {
-        deselectAll();
-        selectedElement = el;
-        selectedElement.classList.add('selected');
-        const type = selectedElement.getAttribute('data-type');
-        showEditControls(type);
-    }
-
-    function showEditControls(type) {
-        if (emptyMsg) emptyMsg.style.display = type ? 'none' : 'block';
-        if (editTextSection) editTextSection.classList.toggle('hidden', type !== 'text');
-        if (editShapeSection) editShapeSection.classList.toggle('hidden', type !== 'square' && type !== 'button');
-        if (editMediaSection) editMediaSection.classList.toggle('hidden', type !== 'image' && type !== 'video' && type !== 'audio');
-
-        // Basculer automatiquement sur le panneau Édition dans la sidebar
-        if (type) {
-            const editNavTab = document.querySelector('.nav-tab[data-panel="panel-edit"]');
-            if (editNavTab) editNavTab.click();
-        }
-    }
-
-    const canvas = document.getElementById('siteCanvas');
-    if (canvas) {
-        canvas.addEventListener('click', (e) => {
-            if (e.target === canvas) deselectAll();
-        });
-    }
-
-    // --- GLISSER-DÉPOSER DES ÉLÉMENTS DEPUIS LA SIDEBAR ---
+  function bindCanvasInteractions() {
     const draggablePresets = document.querySelectorAll('.draggable-preset, .draggable-shape');
     draggablePresets.forEach(preset => {
-        preset.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('type', preset.getAttribute('data-type'));
-            e.dataTransfer.setData('preset', preset.getAttribute('data-preset') || '');
-        });
+      preset.addEventListener('dragstart', (event) => {
+        event.dataTransfer.setData('text/plain', JSON.stringify({
+          type: preset.dataset.type,
+          preset: preset.dataset.preset || null
+        }));
+      });
     });
 
-    if (canvas) {
-        canvas.addEventListener('dragover', (e) => e.preventDefault());
-        canvas.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const type = e.dataTransfer.getData('type');
-            const preset = e.dataTransfer.getData('preset');
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+    siteCanvas.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      siteCanvas.classList.add('drag-over');
+    });
 
-            createElement(type, preset, x, y);
-        });
-    }
+    siteCanvas.addEventListener('dragleave', () => {
+      siteCanvas.classList.remove('drag-over');
+    });
 
-    function createElement(type, preset, x, y) {
-        const item = document.createElement('div');
-        item.className = 'canvas-item';
-        item.style.position = 'absolute';
-        item.style.left = `${x}px`;
-        item.style.top = `${y}px`;
-        item.setAttribute('data-type', type);
+    siteCanvas.addEventListener('drop', (event) => {
+      event.preventDefault();
+      siteCanvas.classList.remove('drag-over');
+      const raw = event.dataTransfer.getData('text/plain');
+      if (!raw) return;
+      try {
+        const payload = JSON.parse(raw);
+        const rect = siteCanvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        createElementOnCanvas(payload.type, payload.preset, x, y);
+      } catch (err) {
+        console.error('Erreur drag & drop', err);
+      }
+    });
 
-        if (type === 'text') {
-            item.contentEditable = 'true';
-            if (preset === 'heading') item.innerHTML = '<h2>Titre de section</h2>';
-            else if (preset === 'subheading') item.innerHTML = '<h3>Sous-titre</h3>';
-            else item.innerHTML = '<p>Texte de paragraphe...</p>';
-            item.style.padding = '5px';
-            item.style.minWidth = '100px';
-        } else if (type === 'square') {
-            item.style.width = '120px';
-            item.style.height = '120px';
-            item.style.backgroundColor = '#6366f1';
-            item.style.borderRadius = '0px';
-        } else if (type === 'button') {
-            item.innerText = 'Cliquez ici';
-            item.style.padding = '10px 20px';
-            item.style.backgroundColor = '#6366f1';
-            item.style.color = '#ffffff';
-            item.style.borderRadius = '20px';
-            item.style.cursor = 'pointer';
-            item.style.textAlign = 'center';
-        }
+    siteCanvas.addEventListener('click', (event) => {
+      if (event.target === siteCanvas) selectElement(null);
+    });
 
-        attachItemEvents(item);
-        canvas.appendChild(item);
-        selectElement(item);
-    }
+    siteCanvas.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      const node = event.target.closest('.canvas-element');
+      if (node) selectElement(node);
+      if (contextMenu) {
+        contextMenu.style.top = `${event.clientY}px`;
+        contextMenu.style.left = `${event.clientX}px`;
+        contextMenu.style.display = 'block';
+      }
+    });
 
-    function attachItemEvents(item) {
-        item.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectElement(item);
-        });
+    document.addEventListener('click', () => {
+      if (contextMenu) contextMenu.style.display = 'none';
+    });
 
-        item.addEventListener('mousedown', (e) => {
-            if (e.target.isContentEditable) return;
-            isDragging = true;
-            selectElement(item);
-            const rect = item.getBoundingClientRect();
-            dragOffset.x = e.clientX - rect.left;
-            dragOffset.y = e.clientY - rect.top;
-        });
-    }
-
-    document.addEventListener('mousemove', (e) => {
-        if (!isDragging || !selectedElement) return;
-        const canvasRect = canvas.getBoundingClientRect();
-        let x = e.clientX - canvasRect.left - dragOffset.x;
-        let y = e.clientY - canvasRect.top - dragOffset.y;
-
-        // Bornes minimales
-        if (x < 0) x = 0;
-        if (y < 0) y = 0;
-
-        selectedElement.style.left = `${x}px`;
-        selectedElement.style.top = `${y}px`;
+    document.addEventListener('mousemove', (event) => {
+      if (!isDragging || !activeElement || !siteCanvas) return;
+      const rect = siteCanvas.getBoundingClientRect();
+      let left = event.clientX - rect.left - dragOffset.x;
+      let top = event.clientY - rect.top - dragOffset.y;
+      left = Math.max(0, Math.min(left, rect.width - activeElement.offsetWidth));
+      top = Math.max(0, Math.min(top, rect.height - activeElement.offsetHeight));
+      activeElement.style.left = `${left}px`;
+      activeElement.style.top = `${top}px`;
     });
 
     document.addEventListener('mouseup', () => {
+      if (isDragging && activeElement) {
+        activeElement.classList.remove('dragging');
         isDragging = false;
+        requestSave();
+      }
     });
 
-    // --- CONTROLES D'ÉDITION DU TEXTE ---
-    const btnBold = document.getElementById('btn-text-bold');
-    if (btnBold) btnBold.addEventListener('click', () => document.execCommand('bold'));
-
-    const btnItalic = document.getElementById('btn-text-italic');
-    if (btnItalic) btnItalic.addEventListener('click', () => document.execCommand('italic'));
-
-    const btnUnderline = document.getElementById('btn-text-underline');
-    if (btnUnderline) btnUnderline.addEventListener('click', () => document.execCommand('underline'));
-
-    const btnStrike = document.getElementById('btn-text-strike');
-    if (btnStrike) btnStrike.addEventListener('click', () => document.execCommand('strikeThrough'));
-
-    // --- CONTROLES DES FORMES & BORDURES ---
-    const shapeCorners = document.getElementById('shape-corners-count');
-    if (shapeCorners) {
-        shapeCorners.addEventListener('input', (e) => {
-            const val = e.target.value;
-            const display = document.getElementById('corners-count-val');
-            if (display) display.innerText = `${val} sommets`;
-            if (selectedElement) {
-                selectedElement.style.clipPath = val === '3'
-                    ? 'polygon(50% 0%, 0% 100%, 100% 100%)'
-                    : 'none';
-            }
-        });
-    }
-
-    const shapeRadius = document.getElementById('shape-border-radius');
-    if (shapeRadius) {
-        shapeRadius.addEventListener('input', (e) => {
-            if (selectedElement) {
-                selectedElement.style.borderRadius = `${e.target.value}px`;
-            }
-        });
-    }
-
-    // --- IMPORTATION DE MEDIAS ---
-    const fileInput = document.getElementById('file-input');
-    if (fileInput) {
-        fileInput.addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
-            files.forEach(file => {
-                const url = URL.createObjectURL(file);
-                if (file.type.startsWith('image/')) {
-                    renderMediaThumb(url, 'image', 'grid-images');
-                } else if (file.type.startsWith('video/')) {
-                    renderMediaThumb(url, 'video', 'grid-videos');
-                } else if (file.type.startsWith('audio/')) {
-                    renderMediaThumb(url, 'audio', 'grid-audios');
-                }
-            });
-        });
-    }
-
-    function renderMediaThumb(url, type, containerId) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'media-thumb';
-        wrapper.style.cursor = 'pointer';
-
-        if (type === 'image') {
-            wrapper.innerHTML = `<img src="${url}" style="width:100%; height:60px; object-fit:cover; border-radius:4px;">`;
-        } else if (type === 'video') {
-            wrapper.innerHTML = `<video src="${url}" style="width:100%; height:60px; object-fit:cover; border-radius:4px;"></video>`;
-        } else {
-            wrapper.innerHTML = `<div style="padding:6px; background:#090d16; font-size:0.75rem; border-radius:4px; color:#fff;">🎵 ${type}</div>`;
-        }
-
-        wrapper.addEventListener('click', () => {
-            const item = document.createElement('div');
-            item.className = 'canvas-item';
-            item.style.position = 'absolute';
-            item.style.left = '50px';
-            item.style.top = '50px';
-            item.setAttribute('data-type', type);
-
-            if (type === 'image') {
-                item.innerHTML = `<img src="${url}" style="max-width:200px; display:block; pointer-events:none;">`;
-            } else if (type === 'video') {
-                item.innerHTML = `<video src="${url}" controls style="max-width:250px; display:block;"></video>`;
-            } else if (type === 'audio') {
-                item.innerHTML = `<audio src="${url}" controls></audio>`;
-            }
-
-            attachItemEvents(item);
-            canvas.appendChild(item);
-            selectElement(item);
-        });
-
-        container.appendChild(wrapper);
-    }
-
-    // --- MENU CONTEXTUEL ---
-    const contextMenu = document.getElementById('contextMenu');
-    if (canvas && contextMenu) {
-        canvas.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            contextMenu.style.display = 'block';
-            contextMenu.style.left = `${e.clientX}px`;
-            contextMenu.style.top = `${e.clientY}px`;
-        });
-
-        document.addEventListener('click', () => {
-            contextMenu.style.display = 'none';
-        });
-    }
-
-    window.execContextMenu = function (action) {
-        if (!selectedElement) return;
-        if (action === 'delete') {
-            selectedElement.remove();
-            deselectAll();
-        } else if (action === 'bring-forward') {
-            const currentZ = parseInt(window.getComputedStyle(selectedElement).zIndex) || 1;
-            selectedElement.style.zIndex = currentZ + 1;
-        } else if (action === 'send-backward') {
-            const currentZ = parseInt(window.getComputedStyle(selectedElement).zIndex) || 1;
-            selectedElement.style.zIndex = Math.max(0, currentZ - 1);
-        }
-        if (contextMenu) contextMenu.style.display = 'none';
+    const textButtons = {
+      bold: document.getElementById('btn-text-bold'),
+      italic: document.getElementById('btn-text-italic'),
+      underline: document.getElementById('btn-text-underline'),
+      strike: document.getElementById('btn-text-strike')
     };
 
-    // --- GESTION DE ARBORESCENCE & PAGES ---
+    Object.entries(textButtons).forEach(([action, button]) => {
+      if (button) {
+        button.addEventListener('click', () => {
+          if (!activeElement || !activeElement.classList.contains('element-text')) return;
+          if (action === 'bold') {
+            activeElement.style.fontWeight = activeElement.style.fontWeight === '700' ? 'normal' : '700';
+          }
+          if (action === 'italic') {
+            activeElement.style.fontStyle = activeElement.style.fontStyle === 'italic' ? 'normal' : 'italic';
+          }
+          if (action === 'underline') {
+            activeElement.style.textDecoration = activeElement.style.textDecoration === 'underline' ? 'none' : 'underline';
+          }
+          if (action === 'strike') {
+            const current = activeElement.style.textDecoration || '';
+            activeElement.style.textDecoration = current.includes('line-through') ? current.replace('line-through', '').trim() : `${current} line-through`.trim();
+          }
+          requestSave();
+        });
+      }
+    });
+  }
+
+  window.execContextMenu = function (action) {
+    if (!activeElement && action !== 'paste') return;
+    if (contextMenu) contextMenu.style.display = 'none';
+
+    switch (action) {
+      case 'copy':
+        clipboard = activeElement.cloneNode(true);
+        break;
+      case 'cut':
+        clipboard = activeElement.cloneNode(true);
+        activeElement.remove();
+        selectElement(null);
+        break;
+      case 'paste':
+        if (clipboard) {
+          const clone = clipboard.cloneNode(true);
+          clone.style.left = `${parseInt(clipboard.style.left || 0) + 20}px`;
+          clone.style.top = `${parseInt(clipboard.style.top || 0) + 20}px`;
+          siteCanvas.appendChild(clone);
+          attachElementEvents(clone);
+          selectElement(clone);
+        }
+        break;
+      case 'bring-forward':
+        activeElement.style.zIndex = `${Number(activeElement.style.zIndex || 10) + 1}`;
+        break;
+      case 'send-backward':
+        activeElement.style.zIndex = `${Math.max(1, Number(activeElement.style.zIndex || 10) - 1)}`;
+        break;
+      case 'delete':
+        activeElement.remove();
+        selectElement(null);
+        break;
+    }
+    requestSave();
+  };
+
+  function initEditor() {
+    bindSidebarTabs();
+    bindCanvasInteractions();
+
+    const openButton = document.getElementById('btn-publish-open');
+    if (openButton) {
+      openButton.addEventListener('click', () => {
+        const publishTab = document.querySelector('.tab-btn[data-tab="publish"]');
+        if (publishTab) publishTab.click();
+      });
+    }
+
+    if (publishButton) {
+      publishButton.addEventListener('click', publishCurrentSite);
+    }
+
+    if (metaTitle) {
+      metaTitle.addEventListener('input', () => {
+        document.title = metaTitle.value.trim() || 'Mon site';
+        requestSave();
+      });
+    }
+
+    if (subdomainInput) {
+      subdomainInput.addEventListener('input', () => requestSave());
+    }
+
+    const draft = readLocalDraft();
+    if (draft && draft.content) {
+      restoreCanvas(draft.content);
+      if (metaTitle && draft.name) metaTitle.value = draft.name;
+      if (subdomainInput && draft.subdomain) subdomainInput.value = draft.subdomain;
+    }
+
+    fetch(`${SITE_API_URL}/${currentSiteId}`)
+      .then(response => {
+        if (!response.ok) {
+          if (!siteCanvas || !siteCanvas.querySelector('.canvas-element')) {
+            createElementOnCanvas('text', 'heading', 80, 80, '<h2>Bienvenue</h2>');
+          }
+          return;
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (!data) return;
+        if (data.content) restoreCanvas(data.content);
+        if (metaTitle && data.name) metaTitle.value = data.name;
+        if (subdomainInput && data.subdomain) subdomainInput.value = data.subdomain;
+        saveLocalDraft(data);
+      })
+      .catch(() => {
+        if (!siteCanvas || !siteCanvas.querySelector('.canvas-element')) {
+          createElementOnCanvas('text', 'heading', 80, 80, '<h2>Bienvenue</h2>');
+        }
+      });
+
     window.addNewPage = function () {
-        const pageName = prompt('Nom de la nouvelle page:');
-        if (!pageName) return;
-        const slug = pageName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-        if (siteData.pages[slug]) {
-            alert('Une page avec ce nom existe déjà.');
-            return;
-        }
-
-        siteData.pages[slug] = { name: pageName, content: [] };
-        renderPagesTree();
+      const container = document.getElementById('pagesTreeContainer');
+      if (!container) return;
+      const item = document.createElement('div');
+      item.className = 'page-item';
+      item.textContent = `Page ${container.children.length + 1}`;
+      container.appendChild(item);
     };
+  }
 
-    function renderPagesTree() {
-        const container = document.getElementById('pagesTreeContainer');
-        if (!container) return;
-
-        container.innerHTML = '';
-        Object.keys(siteData.pages).forEach(slug => {
-            const page = siteData.pages[slug];
-            const div = document.createElement('div');
-            div.className = `page-tree-item ${siteData.currentPage === slug ? 'active' : ''}`;
-            div.style.cssText = 'padding: 8px; border-radius:4px; margin-bottom:4px; cursor:pointer; background:var(--panel-bg-subtle); display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;';
-            div.innerHTML = `<span>📄 ${page.name}</span> <small style="color:var(--text-muted);">${slug}</small>`;
-
-            div.addEventListener('click', () => {
-                siteData.currentPage = slug;
-                renderPagesTree();
-            });
-
-            container.appendChild(div);
-        });
-    }
-
-    // --- PUBLICATION DU SITE ---
-    const btnPublish = document.getElementById('btn-publish-site');
-    const btnPublishOpen = document.getElementById('btn-publish-open');
-
-    if (btnPublishOpen) {
-        btnPublishOpen.addEventListener('click', () => {
-            const publishTab = document.querySelector('.tab-btn[data-tab="publish"]');
-            if (publishTab) publishTab.click();
-        });
-    }
-
-    if (btnPublish) {
-        btnPublish.addEventListener('click', async () => {
-            const subInput = document.getElementById('subdomainInput');
-            const statusBox = document.getElementById('publishStatus');
-            const subdomain = subInput ? subInput.value.trim() : '';
-
-            if (!subdomain) {
-                alert('Veuillez entrer un sous-domaine valide.');
-                return;
-            }
-
-            if (statusBox) statusBox.innerText = '🚀 Publication en cours...';
-
-            try {
-                const fullHTML = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${siteData.pages[siteData.currentPage].name}</title></head><body>${canvas ? canvas.innerHTML : ''}</body></html>`;
-
-                const res = await fetch(`${API_URL}/${siteId}/publish`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ subdomain: subdomain, html: fullHTML })
-                });
-
-                if (statusBox) {
-                    statusBox.innerHTML = `✅ Publié avec succès : <a href="https://${subdomain}.fastcraft.uk" target="_blank" style="color:var(--accent);">https://${subdomain}.fastcraft.uk</a>`;
-                }
-            } catch (e) {
-                if (statusBox) {
-                    statusBox.innerText = '✅ Code HTML généré et prêt pour le Worker Cloudflare.';
-                }
-            }
-        });
-    }
-
-    // --- INITIALISATION ---
-    async function init() {
-        renderPagesTree();
-        if (!siteId) return;
-
-        try {
-            const res = await fetch(`${API_URL}/${siteId}`);
-            if (res.ok) {
-                const data = await res.json();
-                if (data && data.content) {
-                    siteData = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
-                    renderPagesTree();
-                    if (siteData.subdomain) {
-                        const subInput = document.getElementById('subdomainInput');
-                        if (subInput) subInput.value = siteData.subdomain;
-                    }
-                }
-            }
-        } catch (e) {
-            console.error('Erreur chargement site:', e);
-        }
-    }
-
-    init();
+  initEditor();
 });

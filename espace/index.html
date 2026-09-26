@@ -186,50 +186,113 @@
     </div>
 
     <script>
-        const API_URL = 'https://api.fastcraft.uk/api/sites';
+        const API_URL = (() => {
+            const hostname = window.location.hostname;
+            if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
+                return 'http://127.0.0.1:8787/api/sites';
+            }
+            return 'https://api.fastcraft.uk/api/sites';
+        })();
 
+        const STORAGE_KEY = 'fastcraft-sites-cache';
         const sitesGrid = document.getElementById('sitesGrid');
         const createModal = document.getElementById('createModal');
         const openModalBtn = document.getElementById('openModalBtn');
         const closeModalBtn = document.getElementById('closeModalBtn');
         const createSiteForm = document.getElementById('createSiteForm');
 
-        // 1. Charger la liste des sites depuis l'API Cloudflare Worker
-        async function loadSites() {
+        function renderSites(sites) {
+            sitesGrid.innerHTML = '';
+
+            if (!sites || sites.length === 0) {
+                sitesGrid.innerHTML = '<p style="color:#666;">Aucun site pour le moment.</p>';
+                return;
+            }
+
+            sites.forEach(site => {
+                const card = document.createElement('div');
+                card.className = 'site-card';
+                card.onclick = () => window.location.href = `/espace/site.html?id=${site.id}`;
+
+                card.innerHTML = `
+                    <div>
+                      <h3>${escapeHtml(site.name || 'Sans titre')}</h3>
+                      <p>ID: ${escapeHtml(site.id)}</p>
+                    </div>
+                    <p>Créé le : ${new Date(site.created_at || site.updated_at || Date.now()).toLocaleDateString()}</p>
+                `;
+
+                sitesGrid.appendChild(card);
+            });
+        }
+
+        function readLocalSites() {
             try {
-                const response = await fetch(API_URL);
-                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-
-                const sites = await response.json();
-                sitesGrid.innerHTML = '';
-
-                if (!sites || sites.length === 0) {
-                    sitesGrid.innerHTML = '<p style="color:#666;">Aucun site pour le moment.</p>';
-                    return;
-                }
-
-                sites.forEach(site => {
-                    const card = document.createElement('div');
-                    card.className = 'site-card';
-                    card.onclick = () => window.location.href = `/espace/site.html?id=${site.id}`;
-
-                    card.innerHTML = `
-            <div>
-              <h3>${escapeHtml(site.name)}</h3>
-              <p>ID: ${site.id}</p>
-            </div>
-            <p>Créé le : ${new Date(site.created_at).toLocaleDateString()}</p>
-          `;
-
-                    sitesGrid.appendChild(card);
-                });
-            } catch (err) {
-                console.error("Erreur lors du chargement des sites :", err);
-                sitesGrid.innerHTML = '<p style="color:#e53e3e;">Impossible de charger la liste des sites.</p>';
+                return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            } catch {
+                return [];
             }
         }
 
-        // 2. Création d'un nouveau site via POST vers Worker
+        function writeLocalSites(sites) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(sites || []));
+        }
+
+        async function loadSites() {
+            try {
+                const response = await fetch(API_URL, { method: 'GET' });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const sites = await response.json();
+                renderSites(sites);
+                writeLocalSites(sites);
+            } catch (err) {
+                console.warn('API indisponible, fallback localStorage', err);
+                const localSites = readLocalSites();
+                renderSites(localSites);
+                if (!localSites.length) {
+                    sitesGrid.innerHTML = '<p style="color:#e53e3e;">Impossible de charger la liste des sites.</p>';
+                }
+            }
+        }
+
+        async function createSite(name) {
+            const payload = { name };
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || `Erreur serveur ${response.status}`);
+                }
+
+                const data = await response.json();
+                const localSites = readLocalSites();
+                localSites.unshift({ ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+                writeLocalSites(localSites);
+                return data;
+            } catch (err) {
+                console.warn('Création API impossible, fallback localStorage.', err);
+                const id = `site-local-${Date.now()}`;
+                const site = {
+                    id,
+                    name,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+
+                const localSites = readLocalSites();
+                localSites.unshift(site);
+                writeLocalSites(localSites);
+                return site;
+            }
+        }
+
         createSiteForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = document.getElementById('siteName').value.trim();
@@ -237,38 +300,23 @@
             if (!name) return;
 
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name })
-                });
-
-                if (!response.ok) {
-                    const errorMsg = await response.text();
-                    throw new Error(`Erreur serveur (${response.status}): ${errorMsg}`);
-                }
-
-                const data = await response.json();
-
-                if (data.id) {
-                    // Redirection directe vers /site?id=...
+                const data = await createSite(name);
+                if (data && data.id) {
                     window.location.href = `/espace/site.html?id=${data.id}`;
                 }
             } catch (err) {
-                console.error("Erreur lors de la création du site :", err);
-                alert("Erreur lors de la création du site.");
+                console.error('Erreur lors de la création du site :', err);
+                alert('Erreur lors de la création du site.');
             }
         });
 
-        // Utilitaires UI
         openModalBtn.onclick = () => createModal.style.display = 'flex';
         closeModalBtn.onclick = () => createModal.style.display = 'none';
 
         function escapeHtml(str) {
-            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
 
-        // Initialisation
         loadSites();
     </script>
 </body>
